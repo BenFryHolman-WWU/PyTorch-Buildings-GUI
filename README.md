@@ -16,8 +16,8 @@ git clone https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI.git
 cd PyTorch-Buildings-GUI
 
 # Run setup script
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 ### 2. Run the Application
@@ -59,4 +59,4 @@ from neuromancer.system import Node
 ## Resources
 
 - **NeuroMANCER Docs**: https://pnnl.github.io/neuromancer/
-- **NeuroMANCER GitHub**: https://github.com/pnnl/neuromancer
+- **NeuroMANCER GitHub**: https://github.com/pnnl/neuromancer/tree/hvac

@@ -173,15 +173,11 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(splitter)
 
-        # Create status bar
-        self.create_status_bar()
-
     # ---------------------------
     # Left Panel
     # ---------------------------
 
     def create_left_panel(self):
-        """Create left panel showing ONE unified dependency check"""
         panel = QWidget()
         panel.setMinimumWidth(280)
         panel.setMaximumWidth(380)
@@ -248,15 +244,6 @@ class MainWindow(QMainWindow):
     # ---------------------------
     # Status Bar
     # ---------------------------
-
-    def create_status_bar(self):
-        status_bar = QStatusBar()
-        self.setStatusBar(status_bar)
-
-        self.zoom_label = QLabel("Zoom: 100%")
-        status_bar.addPermanentWidget(self.zoom_label)
-
-        status_bar.showMessage("Ready — Mouse wheel to zoom, drag to pan")
 
 
 # ---------------------------
