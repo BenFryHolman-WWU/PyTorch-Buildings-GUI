@@ -2,16 +2,11 @@
 .venv/
 venv/
 env/
-ENV/
 
 # Python
 *.pyc
 __pycache__/
-*.pyo
-*.pyd
-.Python
 *.so
-*.egg
 *.egg-info/
 dist/
 build/
@@ -21,48 +16,30 @@ build/
 *.pt
 *.ckpt
 wandb/
-lightning_logs/
 
-# NeuroMANCER local clone (NOT in Git)
+# NeuroMANCER repo (local reference only)
 neuromancer_repo/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-*.swo
 
 # OS
 .DS_Store
-Thumbs.db
 *.log
-
-# Jupyter Notebooks
-.ipynb_checkpoints/
-*.ipynb
 
 # Data
 data/raw/
 data/processed/
 data/*.zip
-data/*.tar.gz
 !data/samples/
 
-# Model weights
+# Models
 models/*.pth
 models/*.pt
-!models/.gitkeep
-
-# Environment variables
-.env
-
-# Coverage reports
-htmlcov/
-.coverage
-.pytest_cache/
 
 # Outputs
 outputs/
 experiments/
 checkpoints/
-results/

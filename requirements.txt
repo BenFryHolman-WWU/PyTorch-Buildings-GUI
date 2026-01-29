@@ -1,39 +1,14 @@
-# Core Dependencies - Python 3.12.x required
+# GUI
+PyQt6>=6.5.0
 
-# PyTorch (install via setup script for your system)
-# torch>=2.0.0
-# torchvision>=0.15.0
-
-# NeuroMANCER (installed directly from GitHub)
-# git+https://github.com/pnnl/neuromancer.git
-
-# GUI Framework
-PySide6>=6.5.0
-
-# Scientific Computing
+# Scientific
 numpy>=1.24.0
 scipy>=1.10.0
 pandas>=2.0.0
 
 # Visualization
 matplotlib>=3.7.0
-seaborn>=0.12.0
-
-# Image Processing
-Pillow>=10.0.0
-
-# NeuroMANCER optional dependencies
-cvxpy>=1.3.0
-casadi>=3.6.0
 
 # Utilities
 tqdm>=4.65.0
 pyyaml>=6.0
-dill>=0.3.6
-
-# Development
-pytest>=7.4.0
-black>=23.0.0
-flake8>=6.0.0
-
-# Note: PyTorch and NeuroMANCER installed separately by setup script
