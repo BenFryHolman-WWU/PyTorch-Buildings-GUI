@@ -1,0 +1,42 @@
+﻿GUI/Canvas Setup
+* Import building components and control policies from the neuromancer library
+* Implement interface navigation like pan, zoom, etc.
+
+
+Drag and Drop Component System
+* Implement component selection with some UI so we can see all the options at any given time.
+* Implement the ability for components to be dragged onto the canvas.
+* Create new instances of a component that appears any time it is dropped onto the canvas.
+* Allow moving and deleting of components that already exist.
+
+
+Component Editing
+* Implement ability view and edit each component's properties so they can configure behavior including:
+   * Physical parameters such as dimensions.
+   * Any potential HVAC settings.
+   * Environmental assumptions.
+* Include validation that each new property that is edited is allowable given the circumstances.
+* Add error messages that are readable in the GUI.
+
+
+Simulation and Visualizations
+* Configure PyTorch building.
+* Implement execution of built simulations of building physics.
+* Implement closed-loop simulations through control policies.
+* Implement plotting and graphing representing the outcome of a simulation showing:
+   * Energy consumption
+   * Temperature
+   * HVAC behavior
+* Implement exportation of simulation results and model saving/loading.
+
+
+Control Policy
+* Implement selection of optimization objectives such as energy, comfort, cost, etc.
+* Create monitors for training progress through visual feedback.
+* Implement storage of trained policies between sessions.
+
+
+Sprint 0:
+1. Setup GitHub
+2. Connect the neuromancer package and any dependencies for Neuromancer (torch, torchdiffeq, numpy, matplotlib)
+Sprint 1: TBA
