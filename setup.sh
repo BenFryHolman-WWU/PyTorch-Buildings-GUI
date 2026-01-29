@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# PyTorch Buildings GUI - Complete Project Setup
-# This script creates the entire project structure from scratch
+# PyTorch Buildings GUI - Setup with NeuroMANCER (No Large Files in Git)
+# This installs NeuroMANCER directly but keeps it OUT of your Git repo
 
 set -e  # Exit on error
 
 echo "=========================================="
-echo "PyTorch Buildings GUI - Project Setup"
+echo "PyTorch Buildings GUI Setup"
+echo "NeuroMANCER HVAC Integration"
+echo "(Large files excluded from Git)"
 echo "=========================================="
-echo ""
-echo "This will create a complete project structure for a GUI application"
-echo "using PNNL's NeuroMANCER library for building control."
 echo ""
 
 # Check for Python 3.12
@@ -38,7 +37,7 @@ fi
 echo "✓ Found Python $PYTHON_VERSION"
 echo ""
 
-# Step 1: Create directory structure
+# Step 1: Create project structure
 echo "Step 1: Creating project directory structure..."
 mkdir -p src/gui
 mkdir -p src/models
@@ -49,6 +48,7 @@ mkdir -p scripts
 mkdir -p tests
 mkdir -p assets
 mkdir -p docs
+mkdir -p neuromancer_examples  # Local copy of HVAC examples only
 
 echo "✓ Directory structure created"
 echo ""
@@ -61,7 +61,6 @@ cat > .gitignore << 'GITIGNORE'
 venv/
 env/
 ENV/
-.virtualenv/
 
 # Python
 *.pyc
@@ -74,7 +73,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-*.spec
 
 # PyTorch & NeuroMANCER
 *.pth
@@ -83,13 +81,14 @@ build/
 wandb/
 lightning_logs/
 
+# NeuroMANCER local clone (NOT in Git)
+neuromancer_repo/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
 
 # OS
 .DS_Store
@@ -100,7 +99,7 @@ Thumbs.db
 .ipynb_checkpoints/
 *.ipynb
 
-# Data (large files should be downloaded separately)
+# Data
 data/raw/
 data/processed/
 data/*.zip
@@ -110,19 +109,17 @@ data/*.tar.gz
 # Model weights
 models/*.pth
 models/*.pt
-models/*.ckpt
 !models/.gitkeep
 
 # Environment variables
 .env
-.env.local
 
 # Coverage reports
 htmlcov/
 .coverage
 .pytest_cache/
 
-# Project specific
+# Outputs
 outputs/
 experiments/
 checkpoints/
@@ -132,188 +129,193 @@ GITIGNORE
 echo "✓ .gitignore created"
 echo ""
 
-# Step 3: Create .gitattributes (optional, for Git LFS)
-echo "Step 3: Creating .gitattributes..."
-cat > .gitattributes << 'GITATTRIBUTES'
-# Git LFS tracking for large binary files
-# Uncomment these if you want to store model weights in Git
-
-# PyTorch model files
-# *.pth filter=lfs diff=lfs merge=lfs -text
-# *.pt filter=lfs diff=lfs merge=lfs -text
-# *.ckpt filter=lfs diff=lfs merge=lfs -text
-GITATTRIBUTES
-
-echo "✓ .gitattributes created"
-echo ""
-
-# Step 4: Create main README.md
-echo "Step 4: Creating README.md..."
+# Step 3: Create README
+echo "Step 3: Creating README.md..."
 cat > README.md << 'README'
 # PyTorch Buildings GUI
 
-A GUI application for building energy management and control using PNNL's NeuroMANCER library - a PyTorch-based framework for differentiable predictive control and optimization.
+A GUI application for building HVAC control using PNNL's NeuroMANCER library.
 
 ## Overview
 
-This application provides an interactive interface for:
-- Building energy system modeling and control
-- HVAC optimization using neural networks
-- Real-time building performance visualization
-- Model training and evaluation
-
-Built on top of [NeuroMANCER](https://github.com/pnnl/neuromancer), this tool leverages differentiable predictive control for efficient building operations.
+This project uses NeuroMANCER for building control but does NOT include the full NeuroMANCER repository to avoid Git size limits. Instead:
+- NeuroMANCER is installed via pip from Git
+- HVAC example code is copied to `neuromancer_examples/` (tracked in Git)
+- Full NeuroMANCER repo is cloned locally to `neuromancer_repo/` (NOT in Git)
 
 ## Requirements
 
 - **Python 3.12.x** (required)
-- CUDA-compatible GPU (recommended for training)
 - Git
+- CUDA-compatible GPU (recommended)
 
 ## Quick Start
 
-### 1. Clone the Repository
+### 1. Clone & Setup
 
 ```bash
 git clone https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI.git
 cd PyTorch-Buildings-GUI
-```
 
-### 2. Run Setup Script
-
-The setup script will create a virtual environment, install all dependencies including NeuroMANCER, and prepare the project.
-
-**Linux/Mac:**
-```bash
+# Run setup script
 chmod +x setup.sh
 ./setup.sh
 ```
 
-**Windows:**
+This will:
+- Create virtual environment
+- Install NeuroMANCER directly from GitHub
+- Clone NeuroMANCER repo locally for reference (not in your Git)
+- Copy HVAC examples to your project
+- Install all dependencies
+
+### 2. Run the Application
+
 ```bash
-setup.bat
-```
-
-### 3. Run the Application
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate  # Linux/Mac
-# or
-.venv\Scripts\activate     # Windows
-
-# Launch GUI
+source .venv/bin/activate
 python src/main.py
-```
-
-## Manual Installation
-
-If you prefer to set up manually:
-
-### 1. Create Virtual Environment
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# or
-.venv\Scripts\activate     # Windows
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install --upgrade pip
-
-# Install PyTorch (adjust for your CUDA version)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-
-# Install NeuroMANCER
-pip install neuromancer
-
-# Install GUI and other dependencies
-pip install -r requirements.txt
 ```
 
 ## Project Structure
 
 ```
 PyTorch-Buildings-GUI/
+├── README.md
+├── requirements.txt
 ├── src/
-│   ├── main.py              # Application entry point
-│   ├── gui/                 # GUI components (PySide6)
-│   │   ├── main_window.py   # Main application window
-│   │   └── widgets.py       # Custom widgets
-│   ├── models/              # NeuroMANCER model definitions
-│   │   └── building_control.py
-│   └── utils/               # Utility functions
-│       └── data_processing.py
+│   ├── main.py              # GUI entry point
+│   ├── gui/                 # Your GUI code
+│   ├── models/              # Your models using NeuroMANCER
+│   └── utils/
+├── neuromancer_examples/    # HVAC examples (in Git)
+│   ├── hvac_safe_dpc.py    # Copied from NeuroMANCER
+│   ├── building_dynamics.ipynb
+│   └── README.md           # Reference to original files
+├── neuromancer_repo/        # Full NeuroMANCER clone (NOT in Git)
+│   └── (Clone of pnnl/neuromancer for reference)
 ├── data/
-│   └── samples/             # Example data
-├── models/                  # Trained model weights
-├── scripts/                 # Training/preprocessing scripts
-├── tests/                   # Unit tests
-├── assets/                  # Icons, images, etc.
-└── requirements.txt         # Python dependencies
+├── models/
+└── .venv/                   # Virtual environment (NOT in Git)
 ```
 
-## Features
+## NeuroMANCER Access
 
-### Current Features
-- Interactive GUI for building control
-- Integration with NeuroMANCER framework
-- Model training and evaluation interface
-- Data visualization
+### Installation
+NeuroMANCER is installed directly from GitHub:
+```bash
+pip install git+https://github.com/pnnl/neuromancer.git
+```
 
-### Planned Features
-- Real-time building data integration
-- Multi-building optimization
-- Advanced visualization dashboards
-- Export/import functionality for models
+### Using in Code
+```python
+import neuromancer as nm
+from neuromancer.blocks import MLP
+from neuromancer.system import Node
 
-## Usage
+# Full access to all NeuroMANCER features
+```
 
-### Training a Model
+### HVAC Examples
+HVAC control examples are available in two places:
+
+1. **In your project** (tracked in Git):
+   - `neuromancer_examples/` - Key HVAC examples copied here
+   - Safe to commit, reference, and modify
+
+2. **Local reference** (NOT in Git):
+   - `neuromancer_repo/` - Full NeuroMANCER clone
+   - Use for exploring all examples
+   - Not committed to avoid large files
+
+### Updating NeuroMANCER
+
+To get the latest version:
 
 ```bash
-python scripts/train_model.py --data data/building_data.csv --epochs 100
+# Update pip installation
+source .venv/bin/activate
+pip install --upgrade git+https://github.com/pnnl/neuromancer.git
+
+# Update local reference clone
+cd neuromancer_repo
+git pull origin master
+cd ..
+
+# Copy any new HVAC examples you want to track
+cp neuromancer_repo/examples/building_systems/new_example.py neuromancer_examples/
+git add neuromancer_examples/
+git commit -m "Add new HVAC example"
 ```
 
-### Running Tests
+## Development Workflow
+
+### 1. Study HVAC Examples
+```bash
+# Look at examples in your project
+cd neuromancer_examples
+
+# Or explore full examples
+cd neuromancer_repo/examples/building_systems
+jupyter notebook building_dynamics_tutorial.ipynb
+```
+
+### 2. Adapt for Your GUI
+```python
+# src/models/hvac_controller.py
+import neuromancer as nm
+
+# Adapt HVAC examples from neuromancer_examples/
+# Build your control logic
+```
+
+### 3. Build GUI Interface
+```python
+# src/gui/control_panel.py
+# Create Qt widgets for HVAC control
+```
+
+### 4. Commit Your Work
+```bash
+# Only your code and copied examples go to Git
+git add src/ neuromancer_examples/
+git commit -m "Add HVAC control GUI"
+git push
+```
+
+## For Collaborators
+
+When someone clones your project:
 
 ```bash
-pytest tests/
+git clone https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI.git
+cd PyTorch-Buildings-GUI
+./setup.sh  # Installs NeuroMANCER and clones reference repo
 ```
 
-## Development
+They get:
+- Your GUI code
+- HVAC examples you've copied
+- NeuroMANCER installed from GitHub
+- Local reference clone created (not from your Git)
 
-### Setting Up for Development
+## Why This Approach?
 
-```bash
-# Install development dependencies
-pip install pytest black flake8 mypy
+### ✅ Advantages
+- No large files in your Git repo
+- Still have access to all HVAC examples
+- NeuroMANCER always up-to-date (pip install from Git)
+- Can reference full examples locally
+- Key examples tracked in your repo
 
-# Run tests
-pytest
+### 📊 Comparison
 
-# Format code
-black src/
-
-# Lint
-flake8 src/
-```
-
-## About NeuroMANCER
-
-This project uses [NeuroMANCER (Neural Modules with Adaptive Nonlinear Constraints and Efficient Regularizations)](https://github.com/pnnl/neuromancer), developed by Pacific Northwest National Laboratory (PNNL). NeuroMANCER enables:
-
-- Differentiable predictive control (DPC)
-- Physics-informed neural networks
-- Constrained optimization with neural networks
-- Building energy management applications
+| Approach | Your Git Size | HVAC Access | Updates |
+|----------|---------------|-------------|---------|
+| **This approach** | Small | Full | Easy |
+| Git submodule | Large (fails) | Full | Manual |
+| PyPI only | Small | None | Easy |
 
 ## Citation
-
-If you use this tool in your research, please cite:
 
 ```bibtex
 @article{Neuromancer2022,
@@ -324,45 +326,33 @@ If you use this tool in your research, please cite:
 }
 ```
 
-## Contributing
+## Resources
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-[Specify your license here]
+- **NeuroMANCER Docs**: https://pnnl.github.io/neuromancer/
+- **NeuroMANCER GitHub**: https://github.com/pnnl/neuromancer
+- **Your HVAC Examples**: `neuromancer_examples/`
+- **Full Examples Reference**: `neuromancer_repo/examples/` (local only)
 
 ## Contact
 
 Ben Fry Holman - Western Washington University
-
-Project Link: https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI
-
-## Acknowledgments
-
-- [PNNL NeuroMANCER Team](https://github.com/pnnl/neuromancer)
-- [PyTorch](https://pytorch.org/)
-- [PySide6](https://www.qt.io/qt-for-python)
+Project: https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI
 README
 
 echo "✓ README.md created"
 echo ""
 
-# Step 5: Create requirements.txt
-echo "Step 5: Creating requirements.txt..."
+# Step 4: Create requirements.txt
+echo "Step 4: Creating requirements.txt..."
 cat > requirements.txt << 'REQUIREMENTS'
-# Core Dependencies - Requires Python 3.12.x
+# Core Dependencies - Python 3.12.x required
 
-# PyTorch (install separately for your system - see README)
+# PyTorch (install via setup script for your system)
 # torch>=2.0.0
 # torchvision>=0.15.0
 
-# NeuroMANCER - PyTorch-based control library
-neuromancer>=1.5.0
+# NeuroMANCER (installed directly from GitHub)
+# git+https://github.com/pnnl/neuromancer.git
 
 # GUI Framework
 PySide6>=6.5.0
@@ -376,30 +366,32 @@ pandas>=2.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 
-# Image Processing (if needed)
+# Image Processing
 Pillow>=10.0.0
+
+# NeuroMANCER optional dependencies
+cvxpy>=1.3.0
+casadi>=3.6.0
 
 # Utilities
 tqdm>=4.65.0
 pyyaml>=6.0
+dill>=0.3.6
 
-# Development (optional)
+# Development
 pytest>=7.4.0
 black>=23.0.0
 flake8>=6.0.0
 
-# Note: PyTorch should be installed separately based on your system
-# For CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-# For CPU only: pip install torch torchvision
+# Note: PyTorch and NeuroMANCER installed separately by setup script
 REQUIREMENTS
 
 echo "✓ requirements.txt created"
 echo ""
 
-# Step 6: Create Python package structure
-echo "Step 6: Creating Python package files..."
+# Step 5: Create Python package structure
+echo "Step 5: Creating Python files..."
 
-# Create __init__.py files
 touch src/__init__.py
 touch src/gui/__init__.py
 touch src/models/__init__.py
@@ -411,58 +403,105 @@ cat > src/main.py << 'MAINPY'
 #!/usr/bin/env python3
 """
 PyTorch Buildings GUI - Main Entry Point
-
-A GUI application for building energy management using NeuroMANCER.
+Using NeuroMANCER for HVAC Control
 """
 import sys
 from pathlib import Path
 
-# Add src to path
 src_path = Path(__file__).parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton, QTextEdit
 from PySide6.QtCore import Qt
+
+try:
+    import neuromancer as nm
+    NEUROMANCER_AVAILABLE = True
+except ImportError:
+    NEUROMANCER_AVAILABLE = False
 
 
 class MainWindow(QMainWindow):
-    """Main application window - starter template"""
+    """Main application window"""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PyTorch Buildings GUI")
+        self.setWindowTitle("PyTorch Buildings GUI - NeuroMANCER HVAC")
         self.setGeometry(100, 100, 1200, 800)
         
-        # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Create layout
         layout = QVBoxLayout()
         central_widget.setLayout(layout)
         
-        # Add welcome message
-        label = QLabel("Welcome to PyTorch Buildings GUI\n\nBuilt with NeuroMANCER")
-        label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("font-size: 24px; padding: 50px;")
-        layout.addWidget(label)
+        # Title
+        title = QLabel("PyTorch Buildings GUI")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 32px; font-weight: bold; padding: 20px;")
+        layout.addWidget(title)
         
-        # TODO: Add your GUI components here
-        # - Control panels
-        # - Visualization widgets
-        # - Model configuration
-        # - Data input/output
+        # NeuroMANCER status
+        if NEUROMANCER_AVAILABLE:
+            status = QLabel(f"✓ NeuroMANCER {nm.__version__} loaded")
+            status.setStyleSheet("color: green; font-size: 18px;")
+        else:
+            status = QLabel("✗ NeuroMANCER not available - run setup.sh")
+            status.setStyleSheet("color: red; font-size: 18px;")
+        status.setAlignment(Qt.AlignCenter)
+        layout.addWidget(status)
+        
+        # Info text
+        info_text = QTextEdit()
+        info_text.setReadOnly(True)
+        info_text.setHtml("""
+            <h2>HVAC Control with NeuroMANCER</h2>
+            <p><b>Project Structure:</b></p>
+            <ul>
+                <li><b>neuromancer_examples/</b> - HVAC examples (in Git)</li>
+                <li><b>neuromancer_repo/</b> - Full reference clone (local only)</li>
+                <li><b>src/</b> - Your GUI application code</li>
+            </ul>
+            <p><b>HVAC Examples Location:</b></p>
+            <ul>
+                <li>neuromancer_examples/ (tracked in your Git)</li>
+                <li>neuromancer_repo/examples/building_systems/ (local reference)</li>
+            </ul>
+            <p><b>Next Steps:</b></p>
+            <ol>
+                <li>Explore examples in neuromancer_examples/</li>
+                <li>Reference full examples in neuromancer_repo/</li>
+                <li>Build your GUI in src/gui/</li>
+                <li>Create models in src/models/</li>
+            </ol>
+        """)
+        layout.addWidget(info_text)
+        
+        # Buttons
+        btn_examples = QPushButton("Show HVAC Examples Location")
+        btn_examples.clicked.connect(self.show_examples)
+        layout.addWidget(btn_examples)
+    
+    def show_examples(self):
+        from PySide6.QtWidgets import QMessageBox
+        examples_in_git = Path(__file__).parent.parent / "neuromancer_examples"
+        examples_local = Path(__file__).parent.parent / "neuromancer_repo" / "examples" / "building_systems"
+        
+        msg = f"HVAC Examples:\n\n"
+        msg += f"In your Git repo:\n{examples_in_git}\n\n"
+        msg += f"Full examples (local only):\n{examples_local}\n\n"
+        msg += "Key files to explore:\n"
+        msg += "• Part_7_Control_HVAC_SafeDPC.py\n"
+        msg += "• building_dynamics_tutorial.ipynb"
+        
+        QMessageBox.information(self, "HVAC Examples", msg)
 
 
 def main():
-    """Main application entry point"""
     app = QApplication(sys.argv)
-    app.setApplicationName("PyTorch Buildings GUI")
-    
     window = MainWindow()
     window.show()
-    
     return app.exec()
 
 
@@ -472,133 +511,68 @@ MAINPY
 
 chmod +x src/main.py
 
-# Create example model file
-cat > src/models/building_control.py << 'MODELPY'
-"""
-Building Control Models using NeuroMANCER
-
-This module contains model definitions for building energy control.
-"""
-import torch
-import neuromancer as nm
-
-
-class BuildingController:
-    """Example building controller using NeuroMANCER"""
-    
-    def __init__(self, input_size: int, output_size: int):
-        """
-        Initialize building controller
-        
-        Args:
-            input_size: Number of input features (sensors, weather, etc.)
-            output_size: Number of control outputs (HVAC setpoints, etc.)
-        """
-        self.input_size = input_size
-        self.output_size = output_size
-        
-        # Create neural network for control policy
-        # TODO: Implement your NeuroMANCER model here
-        # Example:
-        # self.policy = nm.blocks.MLP(
-        #     insize=input_size,
-        #     outsize=output_size,
-        #     hsizes=[64, 64]
-        # )
-    
-    def predict(self, state: torch.Tensor) -> torch.Tensor:
-        """
-        Predict control actions given current state
-        
-        Args:
-            state: Current building state (temperature, occupancy, etc.)
-            
-        Returns:
-            Control actions (HVAC setpoints, etc.)
-        """
-        # TODO: Implement control logic
-        pass
-
-
-# TODO: Add more model classes as needed
-MODELPY
-
-# Create example utility file
-cat > src/utils/data_processing.py << 'UTILSPY'
-"""
-Data Processing Utilities
-
-Functions for loading, preprocessing, and handling building data.
-"""
-import pandas as pd
-import numpy as np
-from pathlib import Path
-
-
-def load_building_data(filepath: Path) -> pd.DataFrame:
-    """
-    Load building energy data from file
-    
-    Args:
-        filepath: Path to data file (CSV, Excel, etc.)
-        
-    Returns:
-        DataFrame with building data
-    """
-    # TODO: Implement data loading
-    pass
-
-
-def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Preprocess building data for model input
-    
-    Args:
-        df: Raw building data
-        
-    Returns:
-        Preprocessed data ready for model
-    """
-    # TODO: Implement preprocessing
-    # - Handle missing values
-    # - Normalize features
-    # - Create time features
-    # - etc.
-    pass
-
-
-# TODO: Add more utility functions
-UTILSPY
-
-echo "✓ Python package files created"
+echo "✓ Python files created"
 echo ""
 
-# Step 7: Create .gitkeep files for empty directories
-echo "Step 7: Creating .gitkeep files..."
-touch data/.gitkeep
-touch data/samples/.gitkeep
-touch models/.gitkeep
-touch assets/.gitkeep
+# Step 6: Create neuromancer_examples directory with README
+echo "Step 6: Setting up neuromancer_examples directory..."
+cat > neuromancer_examples/README.md << 'EXAMPLESREADME'
+# NeuroMANCER HVAC Examples
 
-echo "✓ .gitkeep files created"
+This directory contains HVAC control examples copied from NeuroMANCER.
+
+## Source
+
+These examples are copied from:
+https://github.com/pnnl/neuromancer/tree/master/examples/building_systems
+
+## Files
+
+After running setup.sh, this directory will contain:
+- Key HVAC control examples from NeuroMANCER
+- Building thermal dynamics tutorials
+- Safe DPC implementations
+
+## Full Examples
+
+For the complete set of examples, see:
+- `../neuromancer_repo/examples/building_systems/` (local reference, not in Git)
+
+## Usage
+
+These files are tracked in Git so your team can:
+- Reference the examples
+- Modify for your specific needs
+- Learn from NeuroMANCER implementations
+
+To update to latest examples:
+```bash
+cd neuromancer_repo
+git pull origin master
+cd ..
+cp neuromancer_repo/examples/building_systems/FILE.py neuromancer_examples/
+git add neuromancer_examples/
+git commit -m "Update HVAC examples"
+```
+EXAMPLESREADME
+
+echo "✓ neuromancer_examples/ created"
 echo ""
 
-# Step 8: Create or update virtual environment
-echo "Step 8: Setting up virtual environment..."
-
+# Step 7: Create/update virtual environment
+echo "Step 7: Setting up virtual environment..."
 if [ ! -d ".venv" ]; then
-    echo "Creating new virtual environment..."
+    echo "Creating virtual environment..."
     $PYTHON_CMD -m venv .venv
     echo "✓ Virtual environment created"
 else
     echo "✓ Virtual environment already exists"
 fi
-
 echo ""
 
-# Step 9: Install dependencies
-echo "Step 9: Installing dependencies..."
-echo "This may take several minutes..."
+# Step 8: Install dependencies
+echo "Step 8: Installing dependencies..."
+echo "This will take several minutes..."
 echo ""
 
 source .venv/bin/activate
@@ -606,131 +580,95 @@ source .venv/bin/activate
 echo "Upgrading pip..."
 pip install --upgrade pip --quiet
 
-echo "Installing PyTorch (this may take a while)..."
-# Install PyTorch with CUDA 11.8 support (adjust as needed)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 --quiet
+echo "Installing PyTorch (CUDA 11.8)..."
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 
-echo "Installing NeuroMANCER..."
-pip install neuromancer --quiet
+echo "Installing NeuroMANCER directly from GitHub..."
+pip install git+https://github.com/pnnl/neuromancer.git
 
-echo "Installing GUI and other dependencies..."
-pip install -r requirements.txt --quiet
+echo "Installing other dependencies..."
+pip install -r requirements.txt
 
 echo "✓ All dependencies installed"
 echo ""
 
-# Step 10: Initialize Git repository
-echo "Step 10: Initializing Git repository..."
+# Step 9: Clone NeuroMANCER locally for reference (NOT in Git)
+echo "Step 9: Cloning NeuroMANCER for local reference..."
+if [ ! -d "neuromancer_repo" ]; then
+    echo "Cloning NeuroMANCER repository (this will take a moment)..."
+    git clone https://github.com/pnnl/neuromancer.git neuromancer_repo
+    echo "✓ NeuroMANCER cloned to neuromancer_repo/ (NOT tracked in Git)"
+else
+    echo "✓ neuromancer_repo/ already exists"
+fi
+echo ""
 
+# Step 10: Copy HVAC examples to project
+echo "Step 10: Copying HVAC examples to your project..."
+if [ -d "neuromancer_repo/examples/building_systems" ]; then
+    echo "Copying building_systems examples..."
+    cp -r neuromancer_repo/examples/building_systems/*.py neuromancer_examples/ 2>/dev/null || true
+    cp -r neuromancer_repo/examples/building_systems/*.ipynb neuromancer_examples/ 2>/dev/null || true
+    echo "✓ HVAC examples copied to neuromancer_examples/"
+else
+    echo "⚠️  Could not find building_systems examples"
+fi
+echo ""
+
+# Step 11: Create .gitkeep files
+touch data/.gitkeep
+touch data/samples/.gitkeep
+touch models/.gitkeep
+touch assets/.gitkeep
+
+# Step 12: Initialize Git if needed
+echo "Step 11: Setting up Git..."
 if [ ! -d ".git" ]; then
     git init
     git add .
-    git commit -m "Initial commit: Project setup with NeuroMANCER integration"
-    echo "✓ Git repository initialized"
+    git commit -m "Initial setup: PyTorch Buildings GUI with NeuroMANCER"
+    echo "✓ Git initialized"
 else
-    echo "✓ Git repository already exists"
+    echo "✓ Git already initialized"
 fi
-
-echo ""
-
-# Step 11: Create useful scripts
-echo "Step 11: Creating utility scripts..."
-
-cat > scripts/train_model.py << 'TRAINPY'
-#!/usr/bin/env python3
-"""
-Model Training Script
-
-Train a building control model using NeuroMANCER.
-"""
-import argparse
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Train building control model")
-    parser.add_argument("--data", type=str, required=True, help="Path to training data")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
-    parser.add_argument("--output", type=str, default="models/", help="Output directory for model")
-    
-    args = parser.parse_args()
-    
-    print(f"Training model on {args.data} for {args.epochs} epochs")
-    # TODO: Implement training logic
-    
-
-if __name__ == "__main__":
-    main()
-TRAINPY
-
-chmod +x scripts/train_model.py
-
-echo "✓ Utility scripts created"
-echo ""
-
-# Step 12: Create sample test
-cat > tests/test_basic.py << 'TESTPY'
-"""
-Basic Tests
-
-Verify project setup and imports work correctly.
-"""
-import pytest
-
-
-def test_imports():
-    """Test that key packages can be imported"""
-    import torch
-    import neuromancer
-    from PySide6 import QtWidgets
-    assert True
-
-
-def test_project_structure():
-    """Test that project directories exist"""
-    from pathlib import Path
-    
-    assert Path("src").exists()
-    assert Path("src/models").exists()
-    assert Path("src/gui").exists()
-    assert Path("data").exists()
-    assert Path("models").exists()
-
-
-# TODO: Add more tests
-TESTPY
-
-echo "✓ Tests created"
 echo ""
 
 echo "=========================================="
 echo "✓ Setup Complete!"
 echo "=========================================="
 echo ""
-echo "Project structure created successfully!"
+echo "NeuroMANCER has been installed without adding large files to Git!"
+echo ""
+echo "Project structure:"
+echo "  • Your code: src/"
+echo "  • HVAC examples (in Git): neuromancer_examples/"
+echo "  • Full NeuroMANCER reference (NOT in Git): neuromancer_repo/"
+echo ""
+echo "✓ Your Git repo stays small (no large files)"
+echo "✓ NeuroMANCER installed: pip install git+https://..."
+echo "✓ HVAC examples copied to neuromancer_examples/"
+echo "✓ Full examples available in neuromancer_repo/ (local only)"
 echo ""
 echo "Next steps:"
 echo ""
-echo "1. Activate the virtual environment:"
+echo "1. Activate environment:"
 echo "   source .venv/bin/activate"
 echo ""
-echo "2. Test the installation:"
+echo "2. Test the GUI:"
 echo "   python src/main.py"
 echo ""
-echo "3. Run tests:"
-echo "   pytest tests/"
+echo "3. Explore HVAC examples:"
+echo "   cd neuromancer_examples"
+echo "   ls *.py"
 echo ""
-echo "4. Start developing your GUI in src/gui/"
+echo "4. Reference full examples:"
+echo "   cd neuromancer_repo/examples/building_systems"
 echo ""
-echo "5. Add your NeuroMANCER models in src/models/"
-echo ""
-echo "6. When ready, push to GitHub:"
+echo "5. Push to GitHub (small repo!):"
 echo "   git remote add origin https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI.git"
 echo "   git push -u origin main"
 echo ""
-echo "For more information, see README.md"
-echo ""
-echo "Documentation:"
-echo "  - NeuroMANCER: https://pnnl.github.io/neuromancer/"
-echo "  - PyTorch: https://pytorch.org/docs/"
-echo "  - PySide6: https://doc.qt.io/qtforpython/"
+echo "To update NeuroMANCER later:"
+echo "   pip install --upgrade git+https://github.com/pnnl/neuromancer.git"
+echo "   cd neuromancer_repo && git pull && cd .."
 echo ""

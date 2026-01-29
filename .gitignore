@@ -3,7 +3,6 @@
 venv/
 env/
 ENV/
-.virtualenv/
 
 # Python
 *.pyc
@@ -16,7 +15,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-*.spec
 
 # PyTorch & NeuroMANCER
 *.pth
@@ -25,13 +23,14 @@ build/
 wandb/
 lightning_logs/
 
+# NeuroMANCER local clone (NOT in Git)
+neuromancer_repo/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
 
 # OS
 .DS_Store
@@ -42,7 +41,7 @@ Thumbs.db
 .ipynb_checkpoints/
 *.ipynb
 
-# Data (large files should be downloaded separately)
+# Data
 data/raw/
 data/processed/
 data/*.zip
@@ -52,19 +51,17 @@ data/*.tar.gz
 # Model weights
 models/*.pth
 models/*.pt
-models/*.ckpt
 !models/.gitkeep
 
 # Environment variables
 .env
-.env.local
 
 # Coverage reports
 htmlcov/
 .coverage
 .pytest_cache/
 
-# Project specific
+# Outputs
 outputs/
 experiments/
 checkpoints/
