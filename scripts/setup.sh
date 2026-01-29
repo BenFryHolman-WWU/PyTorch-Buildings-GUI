@@ -1,18 +1,21 @@
 #!/bin/bash
 
-# PyTorch Buildings GUI - Setup Script
-# Installs NeuroMANCER HVAC branch and PyQt6
-# Fixes torch/torchvision compatibility automatically
+# PyTorch Buildings GUI - Environment Setup
+# Safe version: does NOT create or modify repo files
+# Only touches:
+#   - .venv/
+#   - neuromancer_repo/   (optional reference clone)
 
 set -e
 
 echo "=========================================="
-echo "PyTorch Buildings GUI - Setup"
-echo "NeuroMANCER HVAC Branch"
+echo "PyTorch Buildings GUI - Environment Setup"
 echo "=========================================="
 echo ""
 
-# Check for Python 3.12
+# -----------------------------
+# Python detection
+# -----------------------------
 if command -v python3.12 &> /dev/null; then
     PYTHON_CMD="python3.12"
 elif command -v python3 &> /dev/null; then
@@ -22,7 +25,6 @@ else
     exit 1
 fi
 
-# Verify Python version
 PYTHON_VERSION=$($PYTHON_CMD --version | cut -d' ' -f2)
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d'.' -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d'.' -f2)
@@ -32,187 +34,115 @@ if [ "$PYTHON_MAJOR" != "3" ] || [ "$PYTHON_MINOR" != "12" ]; then
     exit 1
 fi
 
-echo "✓ Python $PYTHON_VERSION"
+echo "✓ Python $PYTHON_VERSION detected"
 echo ""
 
-# Create directory structure
-echo "Creating project structure..."
-mkdir -p src/{gui,models,utils}
-mkdir -p data/samples models scripts tests assets
-echo "✓ Directories created"
-echo ""
-
-# Create .gitignore
-echo "Creating .gitignore..."
-cat > .gitignore << 'EOF'
-# Virtual Environment
-.venv/
-venv/
-env/
-
-# Python
-*.pyc
-__pycache__/
-*.so
-*.egg-info/
-dist/
-build/
-
-# PyTorch & NeuroMANCER
-*.pth
-*.pt
-*.ckpt
-wandb/
-
-# NeuroMANCER repo (local reference only)
-neuromancer_repo/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-*.log
-
-# Data
-data/raw/
-data/processed/
-data/*.zip
-!data/samples/
-
-# Models
-models/*.pth
-models/*.pt
-
-# Outputs
-outputs/
-experiments/
-checkpoints/
-EOF
-echo "✓ .gitignore created"
-echo ""
-
-# Create requirements.txt
-echo "Creating requirements.txt..."
-cat > requirements.txt << 'EOF'
-# GUI
-PyQt6>=6.5.0
-
-# Scientific
-numpy>=1.24.0
-scipy>=1.10.0
-pandas>=2.0.0
-
-# Visualization
-matplotlib>=3.7.0
-
-# Utilities
-tqdm>=4.65.0
-pyyaml>=6.0
-EOF
-echo "✓ requirements.txt created"
-echo ""
-
-# Create Python package files
-echo "Creating Python package structure..."
-touch src/__init__.py src/gui/__init__.py src/models/__init__.py src/utils/__init__.py tests/__init__.py
-echo "✓ Python packages created"
-echo ""
-
-# Create/update virtual environment
+# -----------------------------
+# Virtual environment
+# -----------------------------
 echo "Setting up virtual environment..."
+
 if [ ! -d ".venv" ]; then
     $PYTHON_CMD -m venv .venv
-    echo "✓ Virtual environment created"
+    echo "✓ Created .venv"
 else
-    echo "✓ Virtual environment exists"
+    echo "✓ Using existing .venv"
 fi
+
 echo ""
 
-# Activate and install dependencies
-echo "Installing dependencies..."
 source .venv/bin/activate
-
 pip install --upgrade pip -q
 
-echo "  Installing PyTorch (CPU, compatible build)..."
+# -----------------------------
+# PyTorch stack (CPU-safe)
+# -----------------------------
+echo "Installing PyTorch stack..."
 pip uninstall -y torch torchvision torchaudio >/dev/null 2>&1 || true
 pip install torch torchvision torchaudio -q
+echo "✓ PyTorch installed"
+echo ""
 
-echo "  Installing PyQt6..."
-pip install PyQt6 -q
+# -----------------------------
+# Core dependencies
+# -----------------------------
+echo "Installing core dependencies..."
+pip install \
+    PyQt6 \
+    numpy \
+    scipy \
+    pandas \
+    matplotlib \
+    tqdm \
+    pyyaml \
+    torchdiffeq \
+    -q
+echo "✓ Core dependencies installed"
+echo ""
 
-echo "  Installing NeuroMANCER (HVAC branch)..."
+# -----------------------------
+# NeuroMANCER
+# -----------------------------
+echo "Installing NeuroMANCER (HVAC branch)..."
 pip install git+https://github.com/pnnl/neuromancer.git@hvac -q
-
-echo "  Installing other dependencies..."
-pip install -r requirements.txt -q
-
-echo "✓ Dependencies installed"
+echo "✓ NeuroMANCER installed"
 echo ""
 
-# Clone NeuroMANCER for reference (not in Git)
-echo "Cloning NeuroMANCER HVAC branch for reference..."
+# -----------------------------
+# Optional reference clone
+# -----------------------------
 if [ ! -d "neuromancer_repo" ]; then
+    echo "Cloning neuromancer_repo (reference only)..."
     git clone -b hvac https://github.com/pnnl/neuromancer.git neuromancer_repo -q
-    echo "✓ NeuroMANCER cloned to neuromancer_repo/ (local only)"
+    echo "✓ neuromancer_repo created"
 else
-    echo "✓ neuromancer_repo/ exists"
+    echo "✓ neuromancer_repo already exists"
 fi
+
 echo ""
 
-# Test installations and verify torchvision compatibility
-echo "Verifying installations..."
+# -----------------------------
+# Verification
+# -----------------------------
+echo "Verifying environment..."
 python << 'PYEOF'
 import sys
 
-# Test PyTorch
-try:
-    import torch
-    print(f"  ✓ PyTorch {torch.__version__}")
-except Exception as e:
-    print("  ✗ PyTorch failed:", e)
-    sys.exit(1)
+def check(name, fn):
+    try:
+        v = fn()
+        print(f"  ✓ {name}: {v}")
+    except Exception as e:
+        print(f"  ✗ {name}: {e}")
+        sys.exit(1)
 
-# Test torchvision weight API
-try:
-    from torchvision.models import VGG16_Weights
-    print("  ✓ torchvision VGG16_Weights available")
-except Exception as e:
-    print("  ✗ torchvision mismatch:", e)
-    print("    → torch / torchvision versions are incompatible")
-    sys.exit(1)
+check("torch", lambda: __import__("torch").__version__)
+check("torchvision", lambda: __import__("torchvision").__version__)
+check("torchdiffeq", lambda: __import__("torchdiffeq").__version__)
+check("numpy", lambda: __import__("numpy").__version__)
+check("matplotlib", lambda: __import__("matplotlib").__version__)
 
-# Test NeuroMANCER
-try:
-    import neuromancer as nm
-    print(f"  ✓ NeuroMANCER {nm.__version__}")
-except Exception as e:
-    print("  ✗ NeuroMANCER failed:", e)
-    sys.exit(1)
+from PyQt6 import QtCore
+check("PyQt6", lambda: QtCore.PYQT_VERSION_STR)
 
-# Test PyQt6
-try:
-    from PyQt6 import QtCore
-    print(f"  ✓ PyQt6 {QtCore.PYQT_VERSION_STR}")
-except Exception as e:
-    print("  ✗ PyQt6 failed:", e)
-    sys.exit(1)
+check("neuromancer", lambda: __import__("neuromancer").__version__)
 
-print("")
-print("All dependencies verified successfully!")
+# torchvision API sanity check
+from torchvision.models import VGG16_Weights
+print("  ✓ torchvision VGG16_Weights available")
+
+print("\nEnvironment verified successfully!")
 PYEOF
 
+
 echo ""
 echo "=========================================="
-echo "✓ Setup Complete!"
+echo "✓ Environment Ready"
 echo "=========================================="
 echo ""
-echo "Next steps:"
-echo "  1. Activate environment: source .venv/bin/activate"
-echo "  2. Run GUI: python src/main.py"
+echo "Activate with:"
+echo "  source .venv/bin/activate"
 echo ""
-echo "HVAC examples: neuromancer_repo/examples/building_systems/"
+echo "Run app:"
+echo "  python src/main.py"
 echo ""
