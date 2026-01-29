@@ -1,0 +1,36 @@
+# Core Dependencies - Requires Python 3.12.x
+
+# PyTorch (install separately for your system - see README)
+# torch>=2.0.0
+# torchvision>=0.15.0
+
+# NeuroMANCER - PyTorch-based control library
+neuromancer>=1.5.0
+
+# GUI Framework
+PySide6>=6.5.0
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Image Processing (if needed)
+Pillow>=10.0.0
+
+# Utilities
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# Development (optional)
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Note: PyTorch should be installed separately based on your system
+# For CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# For CPU only: pip install torch torchvision

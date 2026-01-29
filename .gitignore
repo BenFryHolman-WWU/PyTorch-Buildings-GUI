@@ -1,0 +1,71 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# PyTorch & NeuroMANCER
+*.pth
+*.pt
+*.ckpt
+wandb/
+lightning_logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Data (large files should be downloaded separately)
+data/raw/
+data/processed/
+data/*.zip
+data/*.tar.gz
+!data/samples/
+
+# Model weights
+models/*.pth
+models/*.pt
+models/*.ckpt
+!models/.gitkeep
+
+# Environment variables
+.env
+.env.local
+
+# Coverage reports
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Project specific
+outputs/
+experiments/
+checkpoints/
+results/
