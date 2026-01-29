@@ -4,7 +4,7 @@ A GUI application for building HVAC control using PNNL's NeuroMANCER library.
 
 ## Requirements
 
-- **Python 3.12.x** (required)
+- **Python 3.12.x**
 
 ## Quick Start
 
