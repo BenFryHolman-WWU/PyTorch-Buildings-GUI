@@ -5,7 +5,6 @@ A GUI application for building HVAC control using PNNL's NeuroMANCER library.
 ## Requirements
 
 - **Python 3.12.x** (required)
-- Git
 
 ## Quick Start
 
@@ -33,6 +32,8 @@ python src/main.py
 PyTorch-Buildings-GUI/
 ├── README.md
 ├── requirements.txt
+├── .gitignore
+├── .gitattributes
 ├── src/
 │   ├── main.py              # GUI entry point
 │   ├── gui/                 # Your GUI code
@@ -40,8 +41,10 @@ PyTorch-Buildings-GUI/
 │   └── utils/
 ├── neuromancer_repo/        # Full NeuroMANCER clone (NOT in Git)
 │   └── (Clone of pnnl/neuromancer for reference)
-├── data/
-├── models/
+├── assets/
+├── docs/
+├── scripts/
+|── tests/
 └── .venv/                   # Virtual environment (NOT in Git)
 ```
 

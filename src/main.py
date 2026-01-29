@@ -124,14 +124,14 @@ class MainWindow(QMainWindow):
         panel.setMaximumWidth(380)
         layout = QVBoxLayout()
         panel.setLayout(layout)
-        title = QLabel("Dependency Status")
+        title = QLabel("Dependency Status:")
         title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
         layout.addWidget(title)
         if ALL_DEPS_OK:
-            overall = QLabel("✓ All dependencies ready")
+            overall = QLabel("✓ All dependencies are satisfied.")
             overall.setStyleSheet("color: green; font-weight: bold; font-size: 14px;")
         else:
-            overall = QLabel("✗ Missing / broken dependencies")
+            overall = QLabel("✗ Missing / broken dependencies.")
             overall.setStyleSheet("color: red; font-weight: bold; font-size: 14px;")
         layout.addWidget(overall)
         layout.addSpacing(10)
