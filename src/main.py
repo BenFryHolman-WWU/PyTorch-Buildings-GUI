@@ -7,6 +7,11 @@ src_path = Path(__file__).parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
+NM_SRC = Path(__file__).resolve().parents[1] / "neuromancer_repo" / "src"
+
+if str(NM_SRC) not in sys.path:
+    sys.path.insert(0, str(NM_SRC))
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGraphicsView, QGraphicsScene,
@@ -52,7 +57,15 @@ def check_dependencies():
     all_ok = all(v[0] for v in results.values())
     return all_ok, results
 ALL_DEPS_OK, DEP_RESULTS = check_dependencies()
-
+def import_components():
+    import neuromancer.hvac.building_components as bc
+    from neuromancer.hvac.building_components.envelope import Envelope
+    from neuromancer.hvac.building_components.rooftop_unit import RTU
+    from neuromancer.hvac.building_components.vav_box import VAVBox
+    from neuromancer.hvac.building_components.solar_gain import SolarGains
+    components = [Envelope, RTU, VAVBox, SolarGains]
+    return components
+COMPONENTS = import_components()
 # Canvas
 class InteractiveCanvas(QGraphicsView):
     """Interactive canvas with zoom and pan capabilities"""
@@ -124,6 +137,7 @@ class MainWindow(QMainWindow):
         panel.setMaximumWidth(380)
         layout = QVBoxLayout()
         panel.setLayout(layout)
+        # Dependencies
         title = QLabel("Dependency Status:")
         title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
         layout.addWidget(title)
@@ -152,6 +166,20 @@ class MainWindow(QMainWindow):
             else:
                 label = QLabel(f"{name} (not available)")
                 label.setStyleSheet("color: #999;")
+            row_layout.addWidget(label)
+            row_layout.addStretch()
+            layout.addWidget(row)
+        layout.addStretch()
+        # Components
+        comp_title = QLabel("Components:")
+        comp_title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
+        layout.addWidget(comp_title)
+        for cls in COMPONENTS:
+            row = QWidget()
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 2, 0, 2)
+            row.setLayout(row_layout)
+            label = QLabel(cls.__name__)
             row_layout.addWidget(label)
             row_layout.addStretch()
             layout.addWidget(row)

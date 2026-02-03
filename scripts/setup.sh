@@ -76,6 +76,7 @@ pip install \
     tqdm \
     pyyaml \
     torchdiffeq \
+    beartype \
     -q
 echo "✓ Core dependencies installed"
 echo ""
