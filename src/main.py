@@ -112,28 +112,17 @@ class InteractiveCanvas(QGraphicsView):
         self.zoom_factor = new_zoom
         event.accept()
 
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasText():  # only accept drags with text
-            event.acceptProposedAction()
-
-    def dropEvent(self, event):
-        component_name = event.mimeData().text()
-        print("Dropped component:", component_name)
-        event.acceptProposedAction()
 #Button to be dragged
 class DragButton(QPushButton):
-    def mousePressEvent(self, e):
+    def mouseMoveEvent(self, e):
         if e.buttons() == Qt.MouseButton.LeftButton:
             drag = QDrag(self)
             mime = QMimeData()
-            mime.setText(self.text())
             drag.setMimeData(mime)
 
             pixmap = QPixmap(self.size())
-            pixmap.fill(Qt.GlobalColor.transparent)
             self.render(pixmap)
             drag.setPixmap(pixmap)
-            drag.setHotSpot(e.position().toPoint()) 
 
             drag.exec(Qt.DropAction.MoveAction)
 
@@ -141,6 +130,7 @@ class DragButton(QPushButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setAcceptDrops(True)
         self.setWindowTitle("PyTorch Buildings GUI")
         self.setGeometry(100, 100, 1400, 900)
         central_widget = QWidget()
@@ -209,6 +199,7 @@ class MainWindow(QMainWindow):
             row_layout.setContentsMargins(0, 2, 0, 2)
             row.setLayout(row_layout)
             button = DragButton(cls.__name__)
+            button.setFixedSize(100, 40)
             row_layout.addWidget(button)
             row_layout.addStretch()
             layout.addWidget(row)
@@ -224,6 +215,9 @@ class MainWindow(QMainWindow):
             }
         """)
         return panel
+    
+    def dragEnterEvent(self, e):
+        e.accept()
     
 # App Entry
 def main():
