@@ -15,10 +15,10 @@ if str(NM_SRC) not in sys.path:
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGraphicsView, QGraphicsScene,
-    QLabel, QSplitter, QStatusBar
+    QLabel, QSplitter, QStatusBar, QPushButton
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPen, QColor, QPainter, QBrush
+from PyQt6.QtCore import Qt, QMimeData
+from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QDrag, QPixmap
 
 # Dependency Checks
 def check_dependencies():
@@ -74,6 +74,8 @@ class InteractiveCanvas(QGraphicsView):
         super().__init__()
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+        # Accepts drag and drop
+        self.setAcceptDrops(True)
         # Configure view
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
@@ -110,6 +112,31 @@ class InteractiveCanvas(QGraphicsView):
         self.zoom_factor = new_zoom
         event.accept()
 
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():  # only accept drags with text
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        component_name = event.mimeData().text()
+        print("Dropped component:", component_name)
+        event.acceptProposedAction()
+#Button to be dragged
+class DragButton(QPushButton):
+    def mousePressEvent(self, e):
+        if e.buttons() == Qt.MouseButton.LeftButton:
+            drag = QDrag(self)
+            mime = QMimeData()
+            mime.setText(self.text())
+            drag.setMimeData(mime)
+
+            pixmap = QPixmap(self.size())
+            pixmap.fill(Qt.GlobalColor.transparent)
+            self.render(pixmap)
+            drag.setPixmap(pixmap)
+            drag.setHotSpot(e.position().toPoint()) 
+
+            drag.exec(Qt.DropAction.MoveAction)
+
 # Main Window
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -137,6 +164,8 @@ class MainWindow(QMainWindow):
         panel.setMaximumWidth(380)
         layout = QVBoxLayout()
         panel.setLayout(layout)
+        panel.setAcceptDrops(True)
+
         # Dependencies
         title = QLabel("Dependency Status:")
         title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
@@ -179,8 +208,8 @@ class MainWindow(QMainWindow):
             row_layout = QHBoxLayout()
             row_layout.setContentsMargins(0, 2, 0, 2)
             row.setLayout(row_layout)
-            label = QLabel(cls.__name__)
-            row_layout.addWidget(label)
+            button = DragButton(cls.__name__)
+            row_layout.addWidget(button)
             row_layout.addStretch()
             layout.addWidget(row)
         layout.addStretch()
