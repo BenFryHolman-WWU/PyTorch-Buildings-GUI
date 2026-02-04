@@ -154,7 +154,6 @@ class MainWindow(QMainWindow):
         panel.setMaximumWidth(380)
         layout = QVBoxLayout()
         panel.setLayout(layout)
-        panel.setAcceptDrops(True)
 
         # Dependencies
         title = QLabel("Dependency Status:")
