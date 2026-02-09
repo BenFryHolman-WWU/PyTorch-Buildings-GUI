@@ -1,26 +1,30 @@
-#!/usr/bin/env python3
-#PyTorch Buildings GUI - Main Entry Point
+
 import sys
 from pathlib import Path
 
+# Add src paths to sys.path so we can import neuromancer components
 src_path = Path(__file__).parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 NM_SRC = Path(__file__).resolve().parents[1] / "neuromancer_repo" / "src"
-
 if str(NM_SRC) not in sys.path:
     sys.path.insert(0, str(NM_SRC))
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QGraphicsView, QGraphicsScene,
-    QLabel, QSplitter, QStatusBar, QPushButton
+    QLabel, QSplitter, QPushButton
 )
 from PyQt6.QtCore import Qt, QMimeData
-from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QDrag, QPixmap
+from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QDrag
 
+# Import the ComponentItem class from the separate file
+from component_item import ComponentItem
+
+# -----------------------------
 # Dependency Checks
+# -----------------------------
 def check_dependencies():
     results = {}
     try:
@@ -56,7 +60,12 @@ def check_dependencies():
 
     all_ok = all(v[0] for v in results.values())
     return all_ok, results
+
 ALL_DEPS_OK, DEP_RESULTS = check_dependencies()
+
+# -----------------------------
+# Import Components from Neuromancer
+# -----------------------------
 def import_components():
     import neuromancer.hvac.building_components as bc
     from neuromancer.hvac.building_components.envelope import Envelope
@@ -65,34 +74,38 @@ def import_components():
     from neuromancer.hvac.building_components.solar_gain import SolarGains
     components = [Envelope, RTU, VAVBox, SolarGains]
     return components
-COMPONENTS = import_components()
-# Canvas
-class InteractiveCanvas(QGraphicsView):
-    """Interactive canvas with zoom and pan capabilities"""
 
+COMPONENTS = import_components()
+
+# -----------------------------
+# InteractiveCanvas
+# -----------------------------
+class InteractiveCanvas(QGraphicsView):
+    """Interactive canvas with zoom, pan, and drag-drop support"""
     def __init__(self):
         super().__init__()
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
-        # Accepts drag and drop
-        self.setAcceptDrops(True)
-        # Configure view
+        self.setAcceptDrops(True)  # Enable drag-and-drop
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        # Set background
         self.setBackgroundBrush(QBrush(QColor(240, 240, 245)))
-        # Initial zoom
+
         self.zoom_factor = 1.0
         self.min_zoom = 0.1
         self.max_zoom = 10.0
-        # Draw grid
+
+        # Draw the background grid
         self.draw_grid()
 
+        # Track the currently dragged item
+        self.current_drag_item = None
+
     def draw_grid(self):
+        """Draw grid lines in the scene"""
         pen = QPen(QColor(200, 200, 200))
-        pen.setWidth(1)
         grid_size = 50
         grid_range = 2000
         for x in range(-grid_range, grid_range, grid_size):
@@ -101,44 +114,83 @@ class InteractiveCanvas(QGraphicsView):
             self.scene.addLine(-grid_range, y, grid_range, y, pen)
 
     def wheelEvent(self, event):
+        """Zoom in/out with mouse wheel"""
         delta = event.angleDelta().y()
         zoom_in_factor = 1.15
         zoom_out_factor = 1 / zoom_in_factor
         zoom = zoom_in_factor if delta > 0 else zoom_out_factor
         new_zoom = self.zoom_factor * zoom
-        if new_zoom < self.min_zoom or new_zoom > self.max_zoom:
-            return
-        self.scale(zoom, zoom)
-        self.zoom_factor = new_zoom
+        if self.min_zoom <= new_zoom <= self.max_zoom:
+            self.scale(zoom, zoom)
+            self.zoom_factor = new_zoom
         event.accept()
 
-#Button to be dragged
+    # -----------------------------
+    # Drag & Drop Events
+    # -----------------------------
+    def dragEnterEvent(self, event):
+        """Accept drag if it contains text"""
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        """Move the item with the cursor while dragging"""
+        if self.current_drag_item:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.current_drag_item.setPos(scene_pos)
+        event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Finalize drop by clearing reference"""
+        if self.current_drag_item:
+            self.current_drag_item = None
+        event.acceptProposedAction()
+
+# -----------------------------
+# DragButton
+# -----------------------------
 class DragButton(QPushButton):
+    """Button that can be dragged to the canvas"""
     def mouseMoveEvent(self, e):
         if e.buttons() == Qt.MouseButton.LeftButton:
+            main_window = self.window()  # Get the main window
+            canvas = main_window.canvas  # Reference to the InteractiveCanvas
+
+            # Map cursor position to scene coordinates
+            scene_pos = canvas.mapToScene(canvas.mapFromGlobal(e.globalPosition().toPoint()))
+
+            # Create ComponentItem immediately on the canvas
+            item = ComponentItem(self.text(), scene_pos)
+            canvas.scene.addItem(item)
+
+            # Store reference in canvas for live movement
+            canvas.current_drag_item = item
+
+            # Start a QDrag for visual feedback (optional)
             drag = QDrag(self)
             mime = QMimeData()
+            mime.setText(self.text())  # Carries component name
             drag.setMimeData(mime)
-
-            pixmap = QPixmap(self.size())
-            self.render(pixmap)
-            drag.setPixmap(pixmap)
-
             drag.exec(Qt.DropAction.MoveAction)
 
-# Main Window
+# -----------------------------
+# MainWindow
+# -----------------------------
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setAcceptDrops(True)
         self.setWindowTitle("PyTorch Buildings GUI")
         self.setGeometry(100, 100, 1400, 900)
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout()
         central_widget.setLayout(main_layout)
+
         left_panel = self.create_left_panel()
         self.canvas = InteractiveCanvas()
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(left_panel)
         splitter.addWidget(self.canvas)
@@ -147,7 +199,9 @@ class MainWindow(QMainWindow):
         splitter.setSizes([300, 1100])
         main_layout.addWidget(splitter)
 
+    # -----------------------------
     # Left Panel
+    # -----------------------------
     def create_left_panel(self):
         panel = QWidget()
         panel.setMinimumWidth(280)
@@ -155,7 +209,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        # Dependencies
+        # Dependencies display
         title = QLabel("Dependency Status:")
         title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
         layout.addWidget(title)
@@ -178,17 +232,16 @@ class MainWindow(QMainWindow):
                 "color: green; font-weight: bold;" if ok else "color: red; font-weight: bold;"
             )
             row_layout.addWidget(icon)
-
-            if ok:
-                label = QLabel(f"{name} ({info})")
-            else:
-                label = QLabel(f"{name} (not available)")
+            label = QLabel(f"{name} ({info})" if ok else f"{name} (not available)")
+            if not ok:
                 label.setStyleSheet("color: #999;")
             row_layout.addWidget(label)
             row_layout.addStretch()
             layout.addWidget(row)
+
         layout.addStretch()
-        # Components
+
+        # Component buttons
         comp_title = QLabel("Components:")
         comp_title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
         layout.addWidget(comp_title)
@@ -197,12 +250,14 @@ class MainWindow(QMainWindow):
             row_layout = QHBoxLayout()
             row_layout.setContentsMargins(0, 2, 0, 2)
             row.setLayout(row_layout)
-            button = DragButton(cls.__name__)
+            button = DragButton(cls.__name__)  # Button label is component name
             button.setFixedSize(100, 40)
             row_layout.addWidget(button)
             row_layout.addStretch()
             layout.addWidget(row)
+
         layout.addStretch()
+
         # Style panel
         panel.setStyleSheet("""
             QWidget {
@@ -214,16 +269,16 @@ class MainWindow(QMainWindow):
             }
         """)
         return panel
-    
-    def dragEnterEvent(self, e):
-        e.accept()
-    
+
+# -----------------------------
 # App Entry
+# -----------------------------
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("PyTorch Buildings GUI")
     window = MainWindow()
     window.show()
     return app.exec()
+
 if __name__ == "__main__":
     sys.exit(main())
