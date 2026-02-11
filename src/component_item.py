@@ -1,22 +1,35 @@
-from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem
+from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QMenu
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
 
-class ComponentItem(QGraphicsRectItem):
-    """A rectangle + text representing a building component on the canvas"""
-    def __init__(self, name, pos):
-        super().__init__(0, 0, 100, 50)  # Width=100, Height=50
-        self.setPos(pos)  # Set initial position on the canvas
-        self.setBrush(QColor(100, 200, 250, 180))  # Light blue fill
 
-        # Allow the item to be movable and selectable
+class ComponentItem(QGraphicsRectItem):
+    """Rectangle + text representing a building component"""
+
+    def __init__(self, name, pos):
+        super().__init__(0, 0, 120, 50)
+
+        self.setPos(pos)
+        self.setBrush(QColor(100, 200, 250, 180))
+
         self.setFlags(
             QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable |
             QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable
         )
 
-        # Add a text label as a child of the rectangle
         self.label = QGraphicsTextItem(name, self)
         self.label.setDefaultTextColor(Qt.GlobalColor.black)
-        self.label.setPos(10, 10)  # Offset from top-left of rectangle
+        self.label.setPos(10, 10)
 
+    # -----------------------------
+    # Context Menu
+    # -----------------------------
+    def contextMenuEvent(self, event):
+        menu = QMenu()
+        delete_action = menu.addAction("Delete")
+        selected_action = menu.exec(event.screenPos())
+
+        if selected_action == delete_action:
+            scene = self.scene()
+            if scene:
+                scene.removeItem(self)
