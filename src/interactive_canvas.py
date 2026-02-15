@@ -1,8 +1,9 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QPushButton
 from PyQt6.QtGui import QPen, QColor, QPainter, QBrush
 from PyQt6.QtCore import Qt
 
 from component_item import ComponentItem
+from drag_button import DragButton
 
 
 class InteractiveCanvas(QGraphicsView):
@@ -32,10 +33,11 @@ class InteractiveCanvas(QGraphicsView):
     # -----------------------------
     # Public API
     # -----------------------------
-    def create_component(self, name, scene_pos):
-        item = ComponentItem(name, scene_pos)
-        self.scene.addItem(item)
-        return item
+    #---- Just used the component_item init instead -----
+    # def create_component(self, name, scene_pos):
+    #     item = ComponentItem(name, scene_pos)
+    #     self.scene.addItem(item)
+    #     return item
 
     # -----------------------------
     # Grid
@@ -82,4 +84,12 @@ class InteractiveCanvas(QGraphicsView):
 
     def dropEvent(self, event):
         self.current_drag_item = None
+        # ----This was an attempt to make the item be created at time of drop instead of move. Creates visual problems to be fixed. ---
+        # name = event.mimeData().text()
+        # scene_pos = self.mapToScene(
+        #     self.mapFromGlobal(event.position().toPoint())
+        # )
+        # item = ComponentItem(name, scene_pos)
+        # self.scene.addItem(item)
+        # self.current_drag_item = item
         event.acceptProposedAction()

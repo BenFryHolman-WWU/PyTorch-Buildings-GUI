@@ -73,14 +73,9 @@ DEP_RESULTS = check_dependencies()
 # -----------------------------
 # Import Neuromancer Components
 # -----------------------------
-def import_components():
-    from neuromancer.hvac.building_components.envelope import Envelope
-    from neuromancer.hvac.building_components.rooftop_unit import RTU
-    from neuromancer.hvac.building_components.vav_box import VAVBox
-    from neuromancer.hvac.building_components.solar_gain import SolarGains
-    return [Envelope, RTU, VAVBox, SolarGains]
 
-COMPONENTS = import_components()
+from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
+COMPONENTS = [Envelope, RTU, VAVBox, SolarGains]
 
 # -----------------------------
 # Main Window

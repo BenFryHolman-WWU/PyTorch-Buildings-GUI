@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtGui import QDrag
 from PyQt6.QtCore import Qt, QMimeData
+from component_item import ComponentItem
 
 class DragButton(QPushButton):
     """Button that creates draggable component items"""
@@ -15,8 +16,9 @@ class DragButton(QPushButton):
             scene_pos = self.canvas.mapToScene(
                 self.canvas.mapFromGlobal(event.globalPosition().toPoint())
             )
-
-            item = self.canvas.create_component(self.text(), scene_pos)
+            
+            item = ComponentItem(self.text(), scene_pos)
+            self.canvas.scene.addItem(item)
             self.canvas.current_drag_item = item
 
             drag = QDrag(self)
