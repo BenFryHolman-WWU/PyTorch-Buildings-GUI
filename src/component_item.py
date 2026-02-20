@@ -2,7 +2,8 @@ from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QMenu
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
 from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
-from neuromancer.hvac.building import BuildingNode, BuildingSystem
+from neuromancer.hvac.building import BuildingNode
+from property_dialog import PropertyDialog
 
 
 class ComponentItem(QGraphicsRectItem):
@@ -25,6 +26,7 @@ class ComponentItem(QGraphicsRectItem):
         self.component, self.node = self.createComponent(name)
 
     def createComponent(self, name):
+
         n_zones = 2
         match name:
             case "RTU":
@@ -114,7 +116,14 @@ class ComponentItem(QGraphicsRectItem):
                 node = BuildingNode(component, input_map=solar_inputs, name="solar")
         print(name + " created")
         return component, node
-
+                # component = SolarGains(
+                #     n_zones=n_zones,
+                #     window_area=25.0,
+                #     window_orientation=[0.0, 90.0],
+                #     window_shgc=0.6,
+                #     latitude_deg=40.0,
+                #     max_solar_irradiance=800.0
+                # )
     # -----------------------------
     # Context Menu
     # -----------------------------
@@ -125,10 +134,7 @@ class ComponentItem(QGraphicsRectItem):
         # ----------------------
         # Property submenu
         # ----------------------
-        property_menu = menu.addMenu("Display properties")
-        for key, value in vars(self.component).items():
-            property_menu.addAction(key)
-            print(f"{key}: {value}")
+        property_action = menu.addAction("Display properties")
 
         selected_action = menu.exec(event.screenPos())
 
@@ -136,4 +142,6 @@ class ComponentItem(QGraphicsRectItem):
             scene = self.scene()
             if scene:
                 scene.removeItem(self)
-
+        elif selected_action == property_action:
+            dlg = PropertyDialog(self.component)
+            dlg.exec()
