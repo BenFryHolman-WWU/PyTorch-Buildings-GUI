@@ -40,6 +40,7 @@ class PropertyDialog(QDialog):
                     # save to inputs
                     self.inputs[property] = input_line
                     form_layout.addRow(property, input_line)
+                # if tensor is a vector
                 else:
                     # make a hbox layout for multiple boxes
                     hlayout = QHBoxLayout()
@@ -61,14 +62,26 @@ class PropertyDialog(QDialog):
 
     def accept(self):
         for property, value in self.inputs.items():
-            #get the updated value
-            text = value.text()
-            #get the original value of the property
+            # get the original value of the property
             attr = getattr(self.component, property)
+            # if the value is a list, it is not a 0 dimension tensor
+            if(isinstance(value, list)):
+                # convert list to floats
+                updated_list = []
+                for input_line in value:
+                    updated_list.append(float(input_line.text()))
+                setattr(self.component, property, torch.tensor(updated_list))
+
+            else:
+                # get the updated value
+                text = value.text()
+                # set the new value
+                setattr(self.component, property, torch.tensor(float(text)))
             #cast the new value to the same type of the original
-            casted_value = type(attr)(text)
+            # print(type(attr))
+            # casted_value = type(attr)(text)
             #set the new values
-            setattr(self.component, property, casted_value)
+            # setattr(self.component, property, casted_value)
         super().accept()
 
     def getMutableProperties(self):
