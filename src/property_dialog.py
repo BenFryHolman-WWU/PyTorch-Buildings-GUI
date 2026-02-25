@@ -1,6 +1,6 @@
 import sys
 import torch
-from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow, QPushButton, QDialogButtonBox, QHBoxLayout, QVBoxLayout, QLabel, QFormLayout, QLineEdit
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QHBoxLayout, QVBoxLayout, QLabel, QFormLayout, QLineEdit
 
 class PropertyDialog(QDialog):
     "pop up window to edit component properties"

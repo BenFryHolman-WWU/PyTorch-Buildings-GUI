@@ -116,24 +116,13 @@ class ComponentItem(QGraphicsRectItem):
                 node = BuildingNode(component, input_map=solar_inputs, name="solar")
         print(name + " created")
         return component, node
-                # component = SolarGains(
-                #     n_zones=n_zones,
-                #     window_area=25.0,
-                #     window_orientation=[0.0, 90.0],
-                #     window_shgc=0.6,
-                #     latitude_deg=40.0,
-                #     max_solar_irradiance=800.0
-                # )
+        
     # -----------------------------
     # Context Menu
     # -----------------------------
     def contextMenuEvent(self, event):
         menu = QMenu()
         delete_action = menu.addAction("Delete")
-
-        # ----------------------
-        # Property submenu
-        # ----------------------
         property_action = menu.addAction("Update properties")
 
         selected_action = menu.exec(event.screenPos())
