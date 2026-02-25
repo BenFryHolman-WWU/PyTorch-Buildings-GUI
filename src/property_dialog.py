@@ -1,5 +1,7 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow, QPushButton, QDialogButtonBox, QVBoxLayout, QLabel, QFormLayout, QLineEdit
+import torch
+from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow, QPushButton, QDialogButtonBox, QHBoxLayout, QVBoxLayout, QLabel, QFormLayout, QLineEdit
+
 class PropertyDialog(QDialog):
     "pop up window to edit component properties"
     def __init__(self, component, parent=None):
@@ -27,10 +29,29 @@ class PropertyDialog(QDialog):
         mutableProperties = mutablePropertyDict[component_type]
 
         for property in mutableProperties:
-            cur_value = getattr(component, property)
-            input_line = QLineEdit(str(cur_value))
-            self.inputs[property] = input_line
-            form_layout.addRow(property, input_line)
+            value = getattr(component, property)
+            # every value should be a tensor but this is a check just in case
+            if isinstance(value, torch.Tensor):
+                dimensions = value.ndim
+                # if tensor is a scalar
+                if dimensions == 0:
+                    # since value in this case is the tensor, value.item is the float value of the tensor
+                    input_line = QLineEdit(str(value.item()))
+                    # save to inputs
+                    self.inputs[property] = input_line
+                    form_layout.addRow(property, input_line)
+                else:
+                    # make a hbox layout for multiple boxes
+                    hlayout = QHBoxLayout()
+                    # list for the inputs list
+                    line_list = []
+                    # for every value in the dimensions, add a box for it
+                    for i, v in enumerate(value):
+                        input_line = QLineEdit(str(v.item()))
+                        hlayout.addWidget(input_line)
+                        line_list.append(input_line)
+                    self.inputs[property] = line_list
+                    form_layout.addRow(property, hlayout)
 
         layout.addLayout(form_layout)
         message = QLabel("Would you like to save your changes?")
