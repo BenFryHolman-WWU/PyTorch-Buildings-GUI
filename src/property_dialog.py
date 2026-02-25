@@ -41,7 +41,7 @@ class PropertyDialog(QDialog):
                     self.inputs[property] = input_line
                     form_layout.addRow(property, input_line)
                 # if tensor is a vector
-                else:
+                elif dimensions == 1:
                     # make a hbox layout for multiple boxes
                     hlayout = QHBoxLayout()
                     # list for the inputs list
@@ -53,6 +53,27 @@ class PropertyDialog(QDialog):
                         line_list.append(input_line)
                     self.inputs[property] = line_list
                     form_layout.addRow(property, hlayout)
+                # if tensor is a matrix
+                elif dimensions == 2:
+                    vlayout = QVBoxLayout()
+                    input_matrix = []
+
+                    # iterate through the number of rows
+                    for i in range(value.shape[0]):
+                        # create a box for each row
+                        row_layout = QHBoxLayout()
+                        row_list = []
+
+                        # iterate through the number of columns
+                        for j in range(value.shape[1]):
+                            input_line = QLineEdit(str(value[i][j].item()))
+                            row_layout.addWidget(input_line)
+                            row_list.append(input_line)
+                        
+                        vlayout.addLayout(row_layout)
+                        input_matrix.append(row_list)
+                    self.inputs[property] = input_matrix
+                    form_layout.addRow(property, vlayout)
 
         layout.addLayout(form_layout)
         message = QLabel("Would you like to save your changes?")
@@ -62,26 +83,32 @@ class PropertyDialog(QDialog):
 
     def accept(self):
         for property, value in self.inputs.items():
-            # get the original value of the property
-            attr = getattr(self.component, property)
-            # if the value is a list, it is not a 0 dimension tensor
-            if(isinstance(value, list)):
+
+            # 2d tensor
+            if (isinstance(value, list)) and isinstance(value[0], list):
+                updated_list = []
+                for row in value:
+                    # convert list to floats
+                    row_values = []
+                    for input_line in row:
+                        row_values.append(float(input_line.text()))
+                    updated_list.append(row_values)
+                setattr(self.component, property, torch.tensor(updated_list))
+            
+            # 1d tensor
+            elif(isinstance(value, list)) and isinstance(value[0], QLineEdit):
                 # convert list to floats
                 updated_list = []
                 for input_line in value:
                     updated_list.append(float(input_line.text()))
                 setattr(self.component, property, torch.tensor(updated_list))
 
+            # scalar tensor
             else:
                 # get the updated value
                 text = value.text()
                 # set the new value
                 setattr(self.component, property, torch.tensor(float(text)))
-            #cast the new value to the same type of the original
-            # print(type(attr))
-            # casted_value = type(attr)(text)
-            #set the new values
-            # setattr(self.component, property, casted_value)
         super().accept()
 
     def getMutableProperties(self):

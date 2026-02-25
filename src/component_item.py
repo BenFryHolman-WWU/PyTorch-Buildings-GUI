@@ -134,7 +134,7 @@ class ComponentItem(QGraphicsRectItem):
         # ----------------------
         # Property submenu
         # ----------------------
-        property_action = menu.addAction("Display properties")
+        property_action = menu.addAction("Update properties")
 
         selected_action = menu.exec(event.screenPos())
 
