@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QMenu
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPen
 from PyQt6.QtCore import Qt
 from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
 from neuromancer.hvac.building import BuildingNode
@@ -14,6 +14,7 @@ class ComponentItem(QGraphicsRectItem):
 
         self.setPos(pos)
         self.setBrush(QColor(100, 200, 250, 180))
+        self.setPen(QPen(QColor(50, 150, 200), 2))
 
         self.setFlags(
             QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable |
@@ -22,7 +23,7 @@ class ComponentItem(QGraphicsRectItem):
 
         self.label = QGraphicsTextItem(name, self)
         self.label.setDefaultTextColor(Qt.GlobalColor.black)
-        self.label.setPos(10, 10)
+        self.label.setPos(60 - self.label.boundingRect().width() / 2, 25 - self.label.boundingRect().height() / 2)
         self.component, self.node = self.createComponent(name)
 
     def createComponent(self, name):
@@ -128,6 +129,8 @@ class ComponentItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == delete_action:
+            self.component = None
+            self.node = None
             scene = self.scene()
             if scene:
                 scene.removeItem(self)

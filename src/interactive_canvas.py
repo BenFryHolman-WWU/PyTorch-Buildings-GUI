@@ -76,20 +76,15 @@ class InteractiveCanvas(QGraphicsView):
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
-        if self.current_drag_item:
-            scene_pos = self.mapToScene(event.position().toPoint())
-            self.current_drag_item.setPos(scene_pos)
-
         event.acceptProposedAction()
 
     def dropEvent(self, event):
+        name = event.mimeData().text()
+        scene_pos = self.mapToScene(event.position().toPoint())
+        if name and self.current_drag_item is None:
+            item = ComponentItem(name, scene_pos)
+            self.scene.addItem(item)
+        elif self.current_drag_item:
+            self.current_drag_item.setPos(scene_pos)
         self.current_drag_item = None
-        # ----This was an attempt to make the item be created at time of drop instead of move. Creates visual problems to be fixed. ---
-        # name = event.mimeData().text()
-        # scene_pos = self.mapToScene(
-        #     self.mapFromGlobal(event.position().toPoint())
-        # )
-        # item = ComponentItem(name, scene_pos)
-        # self.scene.addItem(item)
-        # self.current_drag_item = item
         event.acceptProposedAction()
