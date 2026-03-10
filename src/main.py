@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
         # Run Simulation Button
         button = QPushButton("Run Simulation", self.canvas)
         button.setFixedSize(120, 40)
-        button.clicked.connect(self.building_model.runSimulation)
+        button.clicked.connect(self.building_model.run_simulation)
         layout.addWidget(button)
 
         layout.addStretch()

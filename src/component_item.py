@@ -132,7 +132,7 @@ class ComponentItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == delete_action:
-            self.building_model.removeNode(self.node)
+            self.building_model.remove_node(self.node)
             self.component = None
             self.node = None
             scene = self.scene()
