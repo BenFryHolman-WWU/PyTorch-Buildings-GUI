@@ -17,12 +17,13 @@ if str(NM_SRC) not in sys.path:
 # -----------------------------
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QVBoxLayout, QHBoxLayout, QLabel, QSplitter
+    QVBoxLayout, QHBoxLayout, QLabel, QSplitter, QPushButton
 )
 from PyQt6.QtCore import Qt
 
 from interactive_canvas import InteractiveCanvas
 from drag_button import DragButton
+from building_model import BuildingModel
 
 # -----------------------------
 # Dependency Checks
@@ -93,8 +94,11 @@ class MainWindow(QMainWindow):
         main_layout = QHBoxLayout()
         central_widget.setLayout(main_layout)
 
+        # Initialize the building model, the name can be changed later when save/load is implemented
+        self.building_model = BuildingModel("Model")
+
         # Canvas
-        self.canvas = InteractiveCanvas()
+        self.canvas = InteractiveCanvas(self.building_model)
 
         # Left Panel
         left_panel = self.create_left_panel()
@@ -139,6 +143,14 @@ class MainWindow(QMainWindow):
             layout.addWidget(button)
 
         layout.addStretch()  # Pushes buttons to top, leaves space below
+
+        # Run Simulation Button
+        button = QPushButton("Run Simulation", self.canvas)
+        button.setFixedSize(120, 40)
+        button.clicked.connect(self.building_model.runSimulation)
+        layout.addWidget(button)
+
+        layout.addStretch()
         return panel
 
 # -----------------------------

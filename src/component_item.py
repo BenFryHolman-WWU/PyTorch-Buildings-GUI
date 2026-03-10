@@ -4,13 +4,16 @@ from PyQt6.QtCore import Qt
 from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
 from neuromancer.hvac.building import BuildingNode
 from property_dialog import PropertyDialog
+from building_model import BuildingModel
 
 
 class ComponentItem(QGraphicsRectItem):
     """Rectangle + text representing a building component"""
 
-    def __init__(self, name, pos):
+    def __init__(self, name, pos, building_model):
         super().__init__(0, 0, 120, 50)
+
+        self.building_model = building_model
 
         self.setPos(pos)
         self.setBrush(QColor(100, 200, 250, 180))
@@ -129,6 +132,7 @@ class ComponentItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == delete_action:
+            self.building_model.removeNode(self.node)
             self.component = None
             self.node = None
             scene = self.scene()

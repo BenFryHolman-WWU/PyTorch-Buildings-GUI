@@ -9,8 +9,10 @@ from drag_button import DragButton
 class InteractiveCanvas(QGraphicsView):
     """Interactive canvas with zoom, pan, and drag/drop"""
 
-    def __init__(self):
+    def __init__(self, building_model):
         super().__init__()
+
+        self.building_model = building_model
 
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
@@ -33,11 +35,6 @@ class InteractiveCanvas(QGraphicsView):
     # -----------------------------
     # Public API
     # -----------------------------
-    #---- Just used the component_item init instead -----
-    # def create_component(self, name, scene_pos):
-    #     item = ComponentItem(name, scene_pos)
-    #     self.scene.addItem(item)
-    #     return item
 
     # -----------------------------
     # Grid
@@ -82,7 +79,8 @@ class InteractiveCanvas(QGraphicsView):
         name = event.mimeData().text()
         scene_pos = self.mapToScene(event.position().toPoint())
         if name and self.current_drag_item is None:
-            item = ComponentItem(name, scene_pos)
+            item = ComponentItem(name, scene_pos, self.building_model)
+            self.building_model.addNode(item.node)
             self.scene.addItem(item)
         elif self.current_drag_item:
             self.current_drag_item.setPos(scene_pos)
