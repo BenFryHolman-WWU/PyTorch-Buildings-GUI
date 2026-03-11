@@ -4,8 +4,6 @@ from PyQt6.QtCore import Qt
 from neuromancer.hvac.building_components import RTU, VAVBox, Envelope, SolarGains
 from neuromancer.hvac.building import BuildingNode
 from property_dialog import PropertyDialog
-from building_model import BuildingModel
-
 
 class ComponentItem(QGraphicsRectItem):
     """Rectangle + text representing a building component"""

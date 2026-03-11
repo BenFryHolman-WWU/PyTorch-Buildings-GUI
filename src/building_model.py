@@ -1,19 +1,20 @@
 import torch
 from neuromancer.hvac.building import BuildingSystem
-from node_connection import Connection
 from graphlib import TopologicalSorter
-from component_item import ComponentItem
+from set_time_dialog import SetTimeDialog
 
 class BuildingModel():
     def __init__(self, name):
         self.name = name
         self.nodes = []
         self.connections = []
+        self.t_start = 5*60*60  # 6 AM in seconds
+        self.t_duration = 86400  # 24 hrs in seconds
+        self.dt = 300  # 5 minutes
 
-    def set_time_param_in_seconds(self, t_start, t_duration, dt):
-        self.t_start = t_start
-        self.t_duration = t_duration
-        self.dt = dt
+    def set_time_param_in_seconds(self):
+        dlg = SetTimeDialog(self)
+        dlg.exec()
 
     def add_node(self, node):
         self.nodes.append(node)
@@ -35,6 +36,7 @@ class BuildingModel():
 
     def run_simulation(self):
         # Will use self.nodes and self.connections to run the simulation
+        # To test list of nodes here, comment out the Simulation code
         print("Running simulation")
         print("Current nodes in model:", [node.name for node in self.nodes])
 
@@ -61,9 +63,13 @@ class BuildingModel():
         t_rng = range(self.t_start, self.t_start + self.t_duration, self.dt)
 
         data = {}
-        data["t"] = torch.tensor(t_rng).reshape(1, -1, 1)
-
         # Weather and occupancy disturbance variables
         # shape is (batch, steps, features)
+        data["t"] = torch.tensor(t_rng).reshape(1, -1, 1)
 
         system = BuildingSystem(sorted_nodes)
+        results = system.simulate(data=data)
+        print(f"Simulation complete!")
+        print(f"Results contain {len(results)} variables")
+        print(f"Time steps: {results['t'].shape[1]}")
+        print(f"Variables: {list(results.keys())}")

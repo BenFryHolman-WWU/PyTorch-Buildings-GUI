@@ -144,8 +144,16 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()  # Pushes buttons to top, leaves space below
 
+        # Set time parameters button
+        button = QPushButton("Set time", self.canvas)
+        button.setFixedSize(120, 40)
+        button.clicked.connect(self.building_model.set_time_param_in_seconds)
+        layout.addWidget(button)
+
+        layout.addStretch()
+
         # Run Simulation Button
-        button = QPushButton("Run Simulation", self.canvas)
+        button = QPushButton("Run simulation", self.canvas)
         button.setFixedSize(120, 40)
         button.clicked.connect(self.building_model.run_simulation)
         layout.addWidget(button)
