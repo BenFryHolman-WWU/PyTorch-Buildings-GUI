@@ -1,7 +1,7 @@
 import torch
 from neuromancer.hvac.building import BuildingSystem
 from graphlib import TopologicalSorter
-from set_time_dialog import SetTimeDialog
+from gui.set_time_dialog import SetTimeDialog
 
 class BuildingModel():
     def __init__(self, name):
@@ -21,11 +21,12 @@ class BuildingModel():
     
     def remove_node(self, node):
         # removes any connections associated with that node
-        for connection in self.connections:
+        for connection in list(self.connections):
             if (connection.srcNode == node) or (connection.dstNode == node):
                 self.remove_connection(connection)
         # removes the node itself
-        self.nodes.remove(node)
+        if node in self.nodes:
+            self.nodes.remove(node)
 
     def add_connection(self, connection):
         # Will connect srcNode output to some part of dstNode input. To be implemented
