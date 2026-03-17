@@ -159,6 +159,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(button)
 
         layout.addStretch()
+
         return panel
 
 # -----------------------------

@@ -80,7 +80,6 @@ class InteractiveCanvas(QGraphicsView):
         scene_pos = self.mapToScene(event.position().toPoint())
         if name and self.current_drag_item is None:
             item = ComponentItem(name, scene_pos, self.building_model)
-            self.building_model.add_node(item.node)
             self.scene.addItem(item)
         elif self.current_drag_item:
             self.current_drag_item.setPos(scene_pos)

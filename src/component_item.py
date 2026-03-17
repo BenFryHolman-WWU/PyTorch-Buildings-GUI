@@ -25,11 +25,10 @@ class ComponentItem(QGraphicsRectItem):
         self.label = QGraphicsTextItem(name, self)
         self.label.setDefaultTextColor(Qt.GlobalColor.black)
         self.label.setPos(60 - self.label.boundingRect().width() / 2, 25 - self.label.boundingRect().height() / 2)
-        self.component, self.node = self.createComponent(name)
+        self.component, self.node = self.createComponent(name, building_model.n_zones)
+        self.building_model.add_componentItem(self)
 
-    def createComponent(self, name):
-
-        n_zones = 2
+    def createComponent(self, name, n_zones):
         match name:
             case "RTU":
                 # Create corresponding component
@@ -130,7 +129,7 @@ class ComponentItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == delete_action:
-            self.building_model.remove_node(self.node)
+            self.building_model.remove_componentItem(self)
             self.component = None
             self.node = None
             scene = self.scene()
