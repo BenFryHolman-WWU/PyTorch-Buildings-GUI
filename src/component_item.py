@@ -60,11 +60,12 @@ class ComponentItem(QGraphicsRectItem):
                 # Create corresponding component
                 component = Envelope(
                     n_zones=n_zones,
-                    R_env=[0.1, 0.12],    # Zone-specific thermal resistance [K/W]
-                    C_env=[1.2e6, 1.0e6],  # Zone-specific thermal mass [J/K]
+                    R_env=self.pad_attribute([0.1, 0.12], n_zones),    # Zone-specific thermal resistance [K/W]
+                    C_env=self.pad_attribute([1.2e6, 1.0e6], n_zones),  # Zone-specific thermal mass [J/K]
                     R_internal=0.05,      # Inter-zone resistance [K/W]
-                    adjacency=[[1.0, 0.0], [0.0, 1.0]],  # Identity matrix, seperate zones
+                    adjacency=self.pad_matrix([[1.0, 0.0], [0.0, 1.0]], n_zones)  # Identity matrix, seperate zones
                 )
+
                 # Wrap component as node
                 envelope_inputs = {
                     "envelope.T_zones": "T_zones",
@@ -80,10 +81,10 @@ class ComponentItem(QGraphicsRectItem):
                 # Create corresponding component
                 component = VAVBox(
                     n_zones=n_zones,
-                    airflow_min=[0.1, 0.08],     # Zone minimums [kg/s]
-                    airflow_max=[0.8, 0.6],      # Zone maximums [kg/s]
-                    control_gain=[2.5, 2.0],     # Zone control sensitivity
-                    Q_reheat_max=[3000, 2500],  # Zone reheat capacity [W]
+                    airflow_min=self.pad_attribute([0.1, 0.08], n_zones),     # Zone minimums [kg/s]
+                    airflow_max=self.pad_attribute([0.8, 0.6], n_zones),      # Zone maximums [kg/s]
+                    control_gain=self.pad_attribute([2.5, 2.0], n_zones),     # Zone control sensitivity
+                    Q_reheat_max=self.pad_attribute([3000, 2500], n_zones),  # Zone reheat capacity [W]
                     reheat_efficiency=0.95       # Electric reheat efficiency
                 )
 
@@ -103,7 +104,7 @@ class ComponentItem(QGraphicsRectItem):
                 component = SolarGains(
                     n_zones=n_zones,
                     window_area=25.0,
-                    window_orientation=[0.0, 90.0],
+                    window_orientation=self.pad_attribute([0.0, 90.0], n_zones),
                     window_shgc=0.6,
                     latitude_deg=40.0,
                     max_solar_irradiance=800.0
@@ -117,6 +118,34 @@ class ComponentItem(QGraphicsRectItem):
                 node = BuildingNode(component, input_map=solar_inputs, name="solar")
         print(name + " created")
         return component, node
+    
+    def pad_attribute(self, values, n_zones):
+        if len(values) > n_zones:
+            return values[:n_zones]
+        
+        return values + [0.0] * (n_zones - len(values))
+    
+    def pad_matrix(self, values, n_zones):
+        # values looks like [[1.0, 0.0], [0.0, 1.0]]
+        # new_matrix = [[1.0, 0.0]] if n_zones = 1
+        new_matrix = values.copy()
+
+        if len(values) > n_zones:
+            new_matrix = values[:n_zones]
+            # for every list in new_matrix cut down to n_zone size
+            for i in range (len(new_matrix)):
+                new_matrix[i] = new_matrix[i][:n_zones]
+        
+        else:
+            # add empty list to account for n_zones to new_matrix
+            for i in range(n_zones - len(new_matrix)):
+                new_matrix.append([0.0] * n_zones)
+            # new_matrix is now [[1.0, 0.0], [0.0, 1.0], [0.0], [0.0]] if n_zones = 4
+            for i in range (len(new_matrix)):
+                if len(new_matrix[i]) < n_zones:
+                    new_matrix[i] = new_matrix[i] + [0.0] * (n_zones - len(new_matrix[i]))
+        return new_matrix
+                
         
     # -----------------------------
     # Context Menu

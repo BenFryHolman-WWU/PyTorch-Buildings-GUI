@@ -19,10 +19,31 @@ class BuildingModel():
         dlg = SetTimeDialog(self)
         dlg.exec()
 
-    def update_nzones(self, value):
-        self.n_zones = value
-        for componentItem in self.componensItems:
-            componentItem.component.n_zones = value
+    def update_n_zones(self, n_zones):
+        zone_dependent_attr = {
+            "Envelope": ["R_env", "C_env", "adjacency"],
+            "VAVBox": ["airflow_min", "airflow_max", "control_gain", "Q_reheat_max"],
+            "SolarGains": ["window_orientation"]
+            }
+        self.n_zones = n_zones
+        for componentItem in self.componentItems:
+            componentItem.component.n_zones = n_zones
+            component_name = componentItem.component.__class__.__name__
+            if component_name in zone_dependent_attr:
+                attribute_list = zone_dependent_attr.get(component_name)
+                for name, value_list in vars(componentItem.component).items():
+                    if name in attribute_list:
+                        updated_list = []
+                        if len(value_list) < n_zones:
+                            for i in range(len(value_list)):
+                                updated_list.append(value_list[i])
+                            for i in range(len(value_list), n_zones):
+                                updated_list.append(0)
+                        else:
+                            for i in range(n_zones):
+                                updated_list.append(value_list[i])
+                        setattr(componentItem.component, name, updated_list)
+
 
     def add_componentItem(self, componentItem):
         self.componentItems.append(componentItem)
@@ -48,6 +69,7 @@ class BuildingModel():
 
         # ----------------------Simulation code-----------------------
         print("Current nodes in model:", [componentItem.node.name for componentItem in self.componentItems])
+        print("n_zones: ", self.n_zones)
         # Use the list of connections to sort the list of nodes into a topological order
         graph_data = {}
         # In graph_data, each node will have the set of nodes that it depends on, initialize each set to empty
