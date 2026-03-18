@@ -5,9 +5,11 @@ from PyQt6.QtWidgets import QHBoxLayout, QTabWidget, QToolButton, QWidget, QSize
 from .interactive_canvas import DragButton
 
 
+ICON_WIDTH = 48
+ICON_HEIGHT = 32
+
+
 class HeaderBar(QWidget):
-
-
     def __init__(self, assets_path, components, component_icon_names, callbacks):
         super().__init__()
         self.assets_path = Path(assets_path)
@@ -27,47 +29,33 @@ class HeaderBar(QWidget):
         tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(tabs, 1)
 
-
     def _placeholder_icon(self):
-        size = 32
+        width = ICON_WIDTH
+        height = ICON_HEIGHT
         tile = 8
-        pixmap = QPixmap(size, size)
+        pixmap = QPixmap(width, height)
         painter = QPainter(pixmap)
         white = QColor(255, 255, 255)
         black = QColor(0, 0, 0)
-        for y in range(0, size, tile):
-            for x in range(0, size, tile):
+        for y in range(0, height, tile):
+            for x in range(0, width, tile):
                 use_white = ((x // tile) + (y // tile)) % 2 == 0
                 painter.fillRect(x, y, tile, tile, white if use_white else black)
         painter.end()
         return QIcon(pixmap)
 
-
     def _load_action_icon(self, *icon_names):
-        icon_dirs = [self.assets_path / "icons", self.assets_path / "buttons", self.assets_path]
-        extensions = [".png", ".svg", ".jpg", ".jpeg", ".webp", ".bmp"]
-        for icon_name in icon_names:
-            if not icon_name:
-                continue
-            provided_name = Path(icon_name)
-            if provided_name.suffix:
-                for icon_dir in icon_dirs:
-                    icon_path = icon_dir / icon_name
-                    if icon_path.exists():
-                        return QIcon(str(icon_path))
-            for icon_dir in icon_dirs:
-                for extension in extensions:
-                    icon_path = icon_dir / f"{icon_name}{extension}"
-                    if icon_path.exists():
-                        return QIcon(str(icon_path))
+        # Intentionally use the same work-in-progress icon for all actions/components.
+        icon_path = self.assets_path / "WIP_ICON.png"
+        if icon_path.exists():
+            return QIcon(str(icon_path))
         return self._placeholder_icon()
-
 
     def _create_action_button(self, label, callback, *icon_names):
         button = QToolButton()
         button.setText(label)
         button.setIcon(self._load_action_icon(*icon_names, label.lower().replace(" ", "_")))
-        button.setIconSize(QSize(32, 32))
+        button.setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT))
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         button.setAutoRaise(True)
         button.setMinimumSize(92, 66)
@@ -76,18 +64,16 @@ class HeaderBar(QWidget):
         self.action_buttons.append(button)
         return button
 
-
     def _create_component_drag_button(self, label, component_name, *icon_names):
         button = DragButton(label, component_name)
         button.setIcon(self._load_action_icon(*icon_names, label.lower().replace(" ", "_")))
-        button.setIconSize(QSize(32, 32))
+        button.setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT))
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         button.setAutoRaise(True)
         button.setMinimumSize(92, 66)
         button.setStyleSheet("""QToolButton { border: none; background: transparent; padding: 2px 4px; color: #000000; } QToolButton:hover { background-color: rgba(0, 0, 0, 0.05); border-radius: 6px; } QToolButton:pressed { background-color: rgba(0, 0, 0, 0.09); border-radius: 6px; }""")
         self.action_buttons.append(button)
         return button
-
 
     def _create_ribbon_tabs(self):
         tabs = QTabWidget()
@@ -98,7 +84,6 @@ class HeaderBar(QWidget):
         tabs.addTab(self._create_components_tab(), "Components")
         tabs.addTab(self._create_tools_tab(), "Tools")
         return tabs
-
 
     def _create_home_tab(self):
         tab = QWidget()
@@ -117,7 +102,6 @@ class HeaderBar(QWidget):
         tab.setLayout(layout)
         return tab
 
-
     def _create_components_tab(self):
         tab = QWidget()
         layout = QHBoxLayout()
@@ -131,13 +115,13 @@ class HeaderBar(QWidget):
         tab.setLayout(layout)
         return tab
 
-
     def _create_tools_tab(self):
         tab = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(4)
         self.add_connection_btn = self._create_action_button("Add Connection", self.callbacks["add_connection"], "add_connection_asset", "add_connection", "connection")
+        self.add_connection_btn.setCheckable(True)
         layout.addWidget(self.add_connection_btn)
         self.edit_component_btn = self._create_action_button("Edit Component", self.callbacks["edit_component"], "edit_component_asset", "edit_component", "edit")
         self.edit_component_btn.setCheckable(True)

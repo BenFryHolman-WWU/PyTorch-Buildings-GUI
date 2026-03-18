@@ -11,10 +11,7 @@ COMPONENT_MUTABLE_PROPERTIES = {
     "SolarGains": ["window_area", "window_orientation", "window_shgc", "latitude_deg", "max_solar_irradiance"],
 }
 
-
 class SetTimeDialog(QDialog):
-
-
     def __init__(self, building_model, parent = None):
         super().__init__(parent)
         self.setWindowTitle("Set time in seconds")
@@ -39,17 +36,13 @@ class SetTimeDialog(QDialog):
         layout.addWidget(QLabel("Would you like to save your changes?"))
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
-
-
+        
     def accept(self):
         for parameter, value in self.inputs.items():
             setattr(self.building_model, parameter, float(value.text()))
         super().accept()
 
-
 class PropertyDialog(QDialog):
-
-
     def __init__(self, component, parent = None):
         super().__init__(parent)
         self.setWindowTitle("Properties")
@@ -105,7 +98,6 @@ class PropertyDialog(QDialog):
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
 
-
     def accept(self):
         for prop, value in self.inputs.items():
             if isinstance(value, list) and value and isinstance(value[0], list):
@@ -121,21 +113,13 @@ class PropertyDialog(QDialog):
 
 
 class DialogueManager:
-
-
     def __init__(self, parent, building_model):
         self.parent = parent
         self.building_model = building_model
-
-
     def show_info(self, title, message):
         QMessageBox.information(self.parent, title, message)
-
-
     def open_set_time_dialog(self):
         SetTimeDialog(self.building_model, self.parent).exec()
-
-
     def prompt_load_layout_path(self, start_dir):
         load_path, _ = QFileDialog.getOpenFileName(
             self.parent,

@@ -15,10 +15,10 @@ from .state_manager import StateManager
 
 COMPONENTS = [Envelope, RTU, VAVBox, SolarGains]
 COMPONENT_ICON_NAMES = {
-    "Envelope": ["add_envelope_asset", "add_envelope"],
-    "RTU": ["add_rtu_asset", "add_rtu"],
-    "VAVBox": ["add_vavbox_asset", "add_vavbox"],
-    "SolarGains": ["add_solargains_asset.png.png", "add_solargains_asset"],
+    "Envelope": ["WIP_ICON.png"],
+    "RTU": ["WIP_ICON.png"],
+    "VAVBox": ["WIP_ICON.png"],
+    "SolarGains": ["WIP_ICON.png"],
 }
 
 
@@ -310,6 +310,8 @@ class MainWindow(QMainWindow):
 
     def set_component_action_mode(self, mode):
         self.pending_component_action = mode
+        if self.add_connection_btn is not None:
+            self.add_connection_btn.setChecked(mode == "connect")
         if self.edit_component_btn is not None:
             self.edit_component_btn.setChecked(mode == "edit")
         if self.delete_component_btn is not None:
