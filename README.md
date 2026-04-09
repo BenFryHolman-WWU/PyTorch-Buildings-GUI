@@ -28,14 +28,6 @@ chmod +x scripts/setup.sh
 scripts\setup.bat
 ```
 
-The script will:
-- Create a `.venv` virtual environment
-- Install PyTorch (CPU build)
-- Install all GUI and scientific dependencies
-- Install the bundled NeuroMANCER HVAC library from `neuromancer_repo/`
-
-> **GPU users:** after setup, replace the PyTorch CPU build with the appropriate GPU build from [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/).
-
 ### 3. Run the application
 
 ```bash
