@@ -29,7 +29,7 @@ from typing import Union, List
 from .base import BuildingComponent
 import neuromancer.hvac.simclock as simclock
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

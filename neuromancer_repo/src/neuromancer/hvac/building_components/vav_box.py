@@ -63,7 +63,7 @@ from ..actuators.damper import Damper
 from ..actuators.electric_reheat_coil import ElectricReheatCoil
 import neuromancer.hvac.simclock as simclock
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

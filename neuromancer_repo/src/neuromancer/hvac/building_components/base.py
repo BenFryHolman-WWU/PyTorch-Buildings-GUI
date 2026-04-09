@@ -40,7 +40,7 @@ import copy
 from ..simulation_inputs.schedules import stochastic_variation, persistent_excitation
 from ..context import MILD_COOLING_CONTEXT
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

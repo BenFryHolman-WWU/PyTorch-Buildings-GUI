@@ -64,7 +64,7 @@ from .base import BuildingComponent
 from ..actuators.actuator import Actuator
 from ..simulation_inputs.schedules import seasonal_temperature
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

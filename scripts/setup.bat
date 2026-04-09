@@ -62,7 +62,7 @@ echo.
 :: GUI + scientific dependencies
 :: -----------------------------------------------
 echo Installing GUI and scientific dependencies...
-pip install PyQt6 numpy scipy matplotlib tqdm -q
+pip install PyQt6 numpy scipy matplotlib tqdm "beartype>=0.17.0" -q
 echo [OK] Core dependencies installed
 echo.
 

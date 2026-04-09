@@ -72,11 +72,12 @@ echo ""
 # -----------------------------------------------
 echo "Installing GUI and scientific dependencies..."
 pip install \
-    PyQt6>=6.5.0 \
+    "PyQt6>=6.5.0" \
     numpy \
     scipy \
     matplotlib \
     tqdm \
+    "beartype>=0.17.0" \
     -q
 echo "✓ Core dependencies installed"
 echo ""

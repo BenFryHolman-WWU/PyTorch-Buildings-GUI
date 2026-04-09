@@ -47,7 +47,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

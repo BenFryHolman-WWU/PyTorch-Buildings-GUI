@@ -13,7 +13,7 @@ from neuromancer.hvac.building_components.base import BuildingComponent
 from neuromancer.hvac.building import BuildingSystem 
 
 import os
-if os.environ.get("RUNTIME_TYPING", 1):
+if os.environ.get("RUNTIME_TYPING", "1") != "0":
     from beartype import beartype
 else:
     # passthrough for no type checking

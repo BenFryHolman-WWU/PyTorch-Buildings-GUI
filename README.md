@@ -87,6 +87,7 @@ PyTorch-Buildings-GUI/
 | pydot         | Graph visualisation             |
 | plum-dispatch | Multiple dispatch (neuromancer) |
 | lightning     | Neural network utilities        |
+| beartype      | Runtime type checking           |
 
 ## NeuroMANCER
 
