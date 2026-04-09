@@ -1,65 +1,96 @@
 # PyTorch Buildings GUI
 
-A GUI application for building HVAC control using PNNL's NeuroMANCER library.
+A desktop application for designing and simulating building HVAC systems using the NeuroMANCER library.
 
 ## Requirements
 
-- **Python 3.12.x**
+- Python 3.10, 3.11, or 3.12
 
 ## Quick Start
 
-### 1. Clone & Setup
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/BenFryHolman-WWU/PyTorch-Buildings-GUI.git
 cd PyTorch-Buildings-GUI
+```
 
-# Run setup script
+### 2. Run the setup script
+
+**macOS / Linux**
+```bash
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 ```
 
-### 2. Run the Application
+**Windows**
+```bat
+scripts\setup.bat
+```
+
+### 3. Run the application
 
 ```bash
+# macOS / Linux
 source .venv/bin/activate
 python src/main.py
+
+# Windows
+.venv\Scripts\activate
+python src\main.py
 ```
 
 ## Project Structure
 
 ```
 PyTorch-Buildings-GUI/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── .gitattributes
 ├── src/
-│   ├── main.py              # GUI entry point
-│   ├── gui/                 # Your GUI code
-│   ├── models/              # Your models using NeuroMANCER
-│   └── utils/
-├── neuromancer_repo/        # Full NeuroMANCER clone (NOT in Git)
-│   └── (Clone of pnnl/neuromancer for reference)
-├── assets/
-├── docs/
+│   ├── main.py                  # Application entry point
+│   ├── gui/                     # PyQt6 GUI components
+│   ├── models/                  # Building model (state, zones, connections)
+│   └── simulation/              # Simulation runner and plotter
+├── neuromancer_repo/            # Bundled NeuroMANCER HVAC library
+│   └── src/neuromancer/
+│       ├── hvac/                # HVAC building components and simulation
+│       ├── constraint.py
+│       ├── gradients.py
+│       └── utils.py
+├── assets/                      # Icons and images
+├── docs/                        # Project documentation
+├── saved/                       # Saved building layouts (JSON)
 ├── scripts/
-|── tests/
-└── .venv/                   # Virtual environment (NOT in Git)
+│   ├── setup.sh                 # Setup script (macOS/Linux)
+│   └── setup.bat                # Setup script (Windows)
+├── requirements.txt             # Python dependencies
+└── .venv/                       # Virtual environment (not in Git)
 ```
 
-## NeuroMANCER Access
+## Supported Components
 
-### Using in Code
-```python
-import neuromancer as nm
-from neuromancer.blocks import MLP
-from neuromancer.system import Node
+| Component  | Description                              |
+|------------|------------------------------------------|
+| Envelope   | Building thermal envelope (zones, walls) |
+| RTU        | Rooftop unit (heating, cooling, fan)     |
+| VAVBox     | Variable air volume terminal box         |
+| SolarGains | Solar irradiance and outdoor temperature |
 
-# Full access to all NeuroMANCER features
-```
+## Dependencies
 
-## Resources
+| Package       | Purpose                         |
+|---------------|---------------------------------|
+| PyQt6         | GUI framework                   |
+| torch         | Tensor computation              |
+| torchdiffeq   | ODE solver for thermal model    |
+| numpy / scipy | Numerical computation           |
+| matplotlib    | Plot export                     |
+| networkx      | System graph (neuromancer)      |
+| pydot         | Graph visualisation             |
+| plum-dispatch | Multiple dispatch (neuromancer) |
+| lightning     | Neural network utilities        |
 
-- **NeuroMANCER Docs**: https://pnnl.github.io/neuromancer/
-- **NeuroMANCER GitHub**: https://github.com/pnnl/neuromancer/tree/hvac
+## NeuroMANCER
+
+This project uses the HVAC branch of the [NeuroMANCER](https://github.com/pnnl/neuromancer) library, bundled in `neuromancer_repo/`.
+
+- [HVAC source code](https://github.com/pnnl/neuromancer/tree/hvac/src/neuromancer/hvac)
+- [NeuroMANCER documentation and user guides](https://github.com/pnnl/neuromancer?tab=readme-ov-file#documentation-and-user-guides)

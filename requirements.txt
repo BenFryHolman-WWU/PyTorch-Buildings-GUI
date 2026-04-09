@@ -1,14 +1,24 @@
+# PyTorch (CPU build — GPU variants installed separately if needed)
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
 # GUI
 PyQt6>=6.5.0
 
 # Scientific
-numpy>=1.24.0
+numpy>=1.24.0,<3.0
 scipy>=1.10.0
-pandas>=2.0.0
 
 # Visualization
 matplotlib>=3.7.0
 
+# NeuroMANCER HVAC dependencies
+torchdiffeq>=0.2.3
+networkx>=3,<4
+pydot==1.4.2
+plum-dispatch==1.7.3
+lightning>=2.0.0
+
 # Utilities
 tqdm>=4.65.0
-pyyaml>=6.0
