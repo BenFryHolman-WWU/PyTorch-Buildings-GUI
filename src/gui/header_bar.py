@@ -10,7 +10,10 @@ ICON_HEIGHT = 32
 
 
 class HeaderBar(QWidget):
+    """Manages the ribbon toolbar with action and component buttons."""
+    
     def __init__(self, assets_path, components, component_icon_names, callbacks):
+        """Initialize the header bar. Args: assets_path (Path), components (list), component_icon_names (dict), callbacks (dict)."""
         super().__init__()
         self.assets_path = Path(assets_path)
         self.components = components
@@ -30,6 +33,7 @@ class HeaderBar(QWidget):
         layout.addWidget(tabs, 1)
 
     def _placeholder_icon(self):
+        """Generate a checkered placeholder icon. Returns: QIcon."""
         width = ICON_WIDTH
         height = ICON_HEIGHT
         tile = 8
@@ -45,6 +49,7 @@ class HeaderBar(QWidget):
         return QIcon(pixmap)
 
     def _load_action_icon(self, *icon_names):
+        """Load action icon from assets or return placeholder. Args: *icon_names. Returns: QIcon."""
         # Intentionally use the same work-in-progress icon for all actions/components.
         icon_path = self.assets_path / "WIP_ICON.png"
         if icon_path.exists():
@@ -52,6 +57,7 @@ class HeaderBar(QWidget):
         return self._placeholder_icon()
 
     def _create_action_button(self, label, callback, *icon_names):
+        """Create an action button with icon and callback. Args: label (str), callback (function), *icon_names. Returns: QToolButton."""
         button = QToolButton()
         button.setText(label)
         button.setIcon(self._load_action_icon(*icon_names, label.lower().replace(" ", "_")))
@@ -65,6 +71,7 @@ class HeaderBar(QWidget):
         return button
 
     def _create_component_drag_button(self, label, component_name, *icon_names):
+        """Create a draggable component button. Args: label (str), component_name (str), *icon_names. Returns: DragButton."""
         button = DragButton(label, component_name)
         button.setIcon(self._load_action_icon(*icon_names, label.lower().replace(" ", "_")))
         button.setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT))
@@ -76,6 +83,7 @@ class HeaderBar(QWidget):
         return button
 
     def _create_ribbon_tabs(self):
+        """Create the ribbon tab widget with Home, Components, and Tools tabs. Returns: QTabWidget."""
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
         tabs.setMovable(False)
@@ -86,6 +94,7 @@ class HeaderBar(QWidget):
         return tabs
 
     def _create_home_tab(self):
+        """Create the Home tab with Save, Load, Run Simulation, and Set Time buttons. Returns: QWidget."""
         tab = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -103,6 +112,7 @@ class HeaderBar(QWidget):
         return tab
 
     def _create_components_tab(self):
+        """Create the Components tab with draggable component buttons. Returns: QWidget."""
         tab = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -116,6 +126,7 @@ class HeaderBar(QWidget):
         return tab
 
     def _create_tools_tab(self):
+        """Create the Tools tab with connection, edit, delete, and area delete buttons. Returns: QWidget."""
         tab = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)

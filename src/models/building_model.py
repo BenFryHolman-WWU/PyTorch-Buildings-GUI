@@ -1,10 +1,13 @@
 import torch
 from neuromancer.hvac.building import BuildingSystem
 from graphlib import TopologicalSorter
-
+from simulation.runner import SimulationRunner, SimulationError
 
 class BuildingModel:
+    """Manages the building layout model with components, nodes, and connections."""
+    
     def __init__(self, name):
+        """Initialize the building model. Args: name (str)."""
         self.name = name
         self.componentItems = []
         self.nodes = []
@@ -15,6 +18,7 @@ class BuildingModel:
         self.dt = 300
 
     def set_time_param_in_seconds(self, t_start = None, t_duration = None, dt = None):
+        """Set simulation timing parameters. Args: t_start (float, optional), t_duration (float, optional), dt (float, optional)."""
         if t_start is not None:
             self.t_start = float(t_start)
         if t_duration is not None:
@@ -23,6 +27,7 @@ class BuildingModel:
             self.dt = float(dt)
 
     def _resize_zone_value(self, value, n_zones):
+        """Resize a property value to match zone count. Args: value, n_zones (int)."""
         if isinstance(value, torch.Tensor):
             if value.ndim == 1:
                 return torch.tensor(self._resize_zone_value(value.tolist(), n_zones), dtype = value.dtype)
@@ -46,6 +51,7 @@ class BuildingModel:
         return value
 
     def update_n_zones(self, n_zones):
+        """Update zone count and resize all component zone-dependent properties. Args: n_zones (int)."""
         zone_dependent_attr = {
             "Envelope": ["R_env", "C_env", "adjacency"],
             "VAVBox": ["airflow_min", "airflow_max", "control_gain", "Q_reheat_max"],
@@ -64,6 +70,7 @@ class BuildingModel:
                 setattr(component, attr, self._resize_zone_value(getattr(component, attr), self.n_zones))
 
     def _infer_zone_count_from_value(self, value):
+        """Infer zone count from a property value. Args: value. Returns: int or None."""
         if isinstance(value, torch.Tensor):
             if value.ndim == 1:
                 return int(value.shape[0])
@@ -79,6 +86,7 @@ class BuildingModel:
         return None
 
     def infer_n_zones_from_components(self):
+        """Infer zone count from all component properties. Returns: int."""
         zone_dependent_attr = {
             "Envelope": ["R_env", "C_env", "adjacency"],
             "VAVBox": ["airflow_min", "airflow_max", "control_gain", "Q_reheat_max"],
@@ -99,43 +107,47 @@ class BuildingModel:
         return inferred
 
     def add_node(self, node):
+        """Add a node to the model. Args: node."""
         self.nodes.append(node)
+
+
     def add_componentItem(self, component_item):
+        """Add a component item and its node to the model. Args: component_item."""
         self.componentItems.append(component_item)
         if component_item.node not in self.nodes:
             self.add_node(component_item.node)
+
+
     def remove_node(self, node):
+        """Remove a node and all its connections from the model. Args: node."""
         for connection in list(self.connections):
             if connection.srcNode == node or connection.dstNode == node:
                 self.remove_connection(connection)
         if node in self.nodes:
             self.nodes.remove(node)
+
+
     def remove_componentItem(self, component_item):
+        """Remove a component item and its node from the model. Args: component_item."""
         if component_item in self.componentItems:
             self.componentItems.remove(component_item)
         self.remove_node(component_item.node)
+
+
     def add_connection(self, connection):
+        """Add a connection between nodes. Args: connection."""
         self.connections.append(connection)
+
+
     def remove_connection(self, connection):
+        """Remove a connection between nodes. Args: connection."""
         self.connections.remove(connection)
 
     def run_simulation(self):
-        print("Running simulation")
-        print("Current nodes in model:", [node.name for node in self.nodes])
-        graph_data = {}
-        for node in self.nodes:
-            graph_data[node] = set()
-        for connection in self.connections:
-            graph_data[connection.dstNode].add(connection.srcNode)
-        top_sort = TopologicalSorter(graph_data)
-        sorted_nodes = list(top_sort.static_order())
-        print("Sorted nodes in model:", [node.name for node in sorted_nodes])
-        t_rng = range(self.t_start, self.t_start + self.t_duration, self.dt)
-        data = {}
-        data["t"] = torch.tensor(t_rng).reshape(1, -1, 1)
-        system = BuildingSystem(sorted_nodes)
-        results = system.simulate(data = data)
+        """Run the simulation. Returns (results, variables, t_start)."""
+        runner = SimulationRunner()
+        results, variables, t_start = runner.run(self)
         print("Simulation complete!")
-        print(f"Results contain {len(results)} variables")
+        print(f"Results contain {len(results)} variables, plotting {len(variables)}")
         print(f"Time steps: {results['t'].shape[1]}")
-        print(f"Variables: {list(results.keys())}")
+        return results, variables, t_start

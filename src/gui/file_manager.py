@@ -4,13 +4,12 @@ from pathlib import Path
 
 
 class FileManager:
-
-
     def __init__(self, building_model):
+        """Initialize the file manager. Args: building_model (BuildingModel)."""
         self.building_model = building_model
 
-
     def _should_inline_list(self, value):
+        """Determine if a list should be inlined in JSON output. Args: value. Returns: bool."""
         if not isinstance(value, list):
             return False
         for item in value:
@@ -20,8 +19,8 @@ class FileManager:
                 return False
         return True
 
-
     def _format_json_with_inline_lists(self, value, indent_level = 0):
+        """Format JSON. Args: value, indent_level (int). Returns: str."""
         indent = "  " * indent_level
         child_indent = "  " * (indent_level + 1)
         if isinstance(value, dict):
@@ -49,14 +48,14 @@ class FileManager:
             return "\n".join(lines)
         return json.dumps(value)
 
-
     def get_saved_dir(self):
+        """Get or create the saved layouts directory. Returns: Path."""
         saved_dir = Path.cwd() / "saved"
         saved_dir.mkdir(parents = True, exist_ok = True)
         return saved_dir
 
-
     def build_payload(self, model_name, n_zones, component_items, visual_connections, time_data):
+        """Serialize building layout data into JSON-compatible dictionary. Args: model_name (str), n_zones (int), component_items (list), visual_connections (list), time_data (dict). Returns: dict."""
         component_index = {item: idx for idx, item in enumerate(component_items)}
         component_sections = {}
         for item in component_items:
@@ -99,8 +98,8 @@ class FileManager:
         }
         return payload
 
-
     def save_layout(self, model_name, n_zones, component_items, visual_connections, time_data):
+        """Save the current building layout to a timestamped JSON file. Args: model_name (str), n_zones (int), component_items (list), visual_connections (list), time_data (dict). Returns: Path."""
         saved_dir = self.get_saved_dir()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         save_path = saved_dir / f"building_layout_{timestamp}.json"
@@ -109,32 +108,36 @@ class FileManager:
             json_file.write(self._format_json_with_inline_lists(payload) + "\n")
         return save_path
 
-
     def load_payload_from_path(self, load_path):
+        """Load a JSON from a file path. Args: load_path (str). Returns: dict."""
         with open(load_path, "r", encoding = "utf-8") as json_file:
             payload = json.load(json_file)
         return payload
 
-
     def get_model_name(self, payload, default_name):
+        """Extract model name. Args: payload (dict), default_name (str). Returns: str."""
         return payload.get("name", default_name)
 
-
     def get_n_zones(self, payload, default_n_zones):
+        """Extract zone count. Args: payload (dict), default_n_zones (int). Returns: int."""
         return int(payload.get("n_zones", default_n_zones))
 
 
     def get_components(self, payload):
+        """Extract component list. Args: payload (dict). Returns: list."""
         return payload.get("components", [])
 
 
     def get_component_sections(self, payload):
+        """Extract component sections. Args: payload (dict). Returns: dict."""
         return payload.get("component_sections", {})
 
 
     def get_connections(self, payload):
+        """Extract connection list. Args: payload (dict). Returns: list."""
         return payload.get("connections", [])
 
 
     def get_time_data(self, payload):
+        """Extract simulation timing data. Args: payload (dict). Returns: dict."""
         return payload.get("time", {})

@@ -1,4 +1,4 @@
-# Virtual Environment
+# Virtual environment
 .venv/
 venv/
 env/
@@ -11,14 +11,10 @@ __pycache__/
 dist/
 build/
 
-# PyTorch & NeuroMANCER
+# PyTorch checkpoints
 *.pth
 *.pt
 *.ckpt
-wandb/
-
-# NeuroMANCER repo (local reference only)
-neuromancer_repo/
 
 # IDE
 .vscode/
@@ -29,18 +25,8 @@ neuromancer_repo/
 .DS_Store
 *.log
 
-# Data
-data/raw/
-data/processed/
-data/*.zip
-!data/samples/
-
-# Models
-models/*.pth
-models/*.pt
-
-# Outputs
+# Outputs / experiments
+wandb/
 outputs/
 experiments/
 checkpoints/
-saved/

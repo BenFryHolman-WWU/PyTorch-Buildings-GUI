@@ -11,8 +11,12 @@ COMPONENT_MUTABLE_PROPERTIES = {
     "SolarGains": ["window_area", "window_orientation", "window_shgc", "latitude_deg", "max_solar_irradiance"],
 }
 
+
 class SetTimeDialog(QDialog):
+    """Dialog for configuring simulation time parameters."""
+
     def __init__(self, building_model, parent = None):
+        """Initialize the set time dialog. Args: building_model (BuildingModel), parent (QWidget, optional)."""
         super().__init__(parent)
         self.setWindowTitle("Set time in seconds")
         self.inputs = {}
@@ -36,14 +40,20 @@ class SetTimeDialog(QDialog):
         layout.addWidget(QLabel("Would you like to save your changes?"))
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
-        
+
+
     def accept(self):
+        """Apply the time changes and close the dialog."""
         for parameter, value in self.inputs.items():
             setattr(self.building_model, parameter, float(value.text()))
         super().accept()
 
+
 class PropertyDialog(QDialog):
-    def __init__(self, component, parent = None):
+    """Dialog for editing component properties with zone-aware matrix and vector inputs."""
+
+    def __init__(self, component, n_zones = 1, parent = None):
+        """Initialize the property dialog for a component. Args: component, n_zones (int), parent (QWidget, optional)."""
         super().__init__(parent)
         self.setWindowTitle("Properties")
         self.setMinimumWidth(820)
@@ -73,8 +83,9 @@ class PropertyDialog(QDialog):
                 elif dimensions == 1:
                     h_layout = QHBoxLayout()
                     line_list = []
-                    for tensor_value in value:
-                        input_line = QLineEdit(str(tensor_value.item()))
+                    for i in range(n_zones):
+                        val = value[i].item() if i < value.shape[0] else value[-1].item()
+                        input_line = QLineEdit(str(val))
                         h_layout.addWidget(input_line)
                         line_list.append(input_line)
                     self.inputs[prop] = line_list
@@ -82,11 +93,15 @@ class PropertyDialog(QDialog):
                 elif dimensions == 2:
                     v_layout = QVBoxLayout()
                     input_matrix = []
-                    for i in range(value.shape[0]):
+                    for i in range(n_zones):
                         row_layout = QHBoxLayout()
                         row_list = []
-                        for j in range(value.shape[1]):
-                            input_line = QLineEdit(str(value[i][j].item()))
+                        for j in range(n_zones):
+                            if i < value.shape[0] and j < value.shape[1]:
+                                val = value[i][j].item()
+                            else:
+                                val = 1.0 if i == j else 0.0
+                            input_line = QLineEdit(str(val))
                             row_layout.addWidget(input_line)
                             row_list.append(input_line)
                         v_layout.addLayout(row_layout)
@@ -98,7 +113,9 @@ class PropertyDialog(QDialog):
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
 
+
     def accept(self):
+        """Apply the property changes to the component and close the dialog."""
         for prop, value in self.inputs.items():
             if isinstance(value, list) and value and isinstance(value[0], list):
                 updated_list = []
@@ -113,14 +130,26 @@ class PropertyDialog(QDialog):
 
 
 class DialogueManager:
+    """Manages dialogs and file prompts for the main window."""
+
     def __init__(self, parent, building_model):
+        """Initialize the dialogue manager. Args: parent (QWidget), building_model (BuildingModel)."""
         self.parent = parent
         self.building_model = building_model
+
+
     def show_info(self, title, message):
+        """Show an informational message box. Args: title (str), message (str)."""
         QMessageBox.information(self.parent, title, message)
+
+
     def open_set_time_dialog(self):
+        """Open the set time dialog for configuring simulation parameters."""
         SetTimeDialog(self.building_model, self.parent).exec()
+
+
     def prompt_load_layout_path(self, start_dir):
+        """Prompt user to select a JSON layout file to load. Args: start_dir (str). Returns: str or None."""
         load_path, _ = QFileDialog.getOpenFileName(
             self.parent,
             "Load Layout",
@@ -130,4 +159,3 @@ class DialogueManager:
         if not load_path:
             return None
         return load_path
-
