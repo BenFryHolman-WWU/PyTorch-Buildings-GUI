@@ -49,11 +49,20 @@ class HeaderBar(QWidget):
         return QIcon(pixmap)
 
     def _load_action_icon(self, *icon_names):
-        """Load action icon from assets or return placeholder. Args: *icon_names. Returns: QIcon."""
-        # Intentionally use the same work-in-progress icon for all actions/components.
-        icon_path = self.assets_path / "WIP_ICON.png"
-        if icon_path.exists():
-            return QIcon(str(icon_path))
+        """Load action icon from assets or return placeholder."""
+        
+        # 1. Try specific icon names first (e.g., save.png)
+        for name in icon_names:
+            icon_path = self.assets_path / f"{name}.png"
+            if icon_path.exists():
+                return QIcon(str(icon_path))
+
+        # 2. Fallback: WIP icon
+        wip_path = self.assets_path / "WIP_ICON.png"
+        if wip_path.exists():
+            return QIcon(str(wip_path))
+
+        # 3. Final fallback
         return self._placeholder_icon()
 
     def _create_action_button(self, label, callback, *icon_names):
