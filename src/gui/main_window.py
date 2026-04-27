@@ -1000,6 +1000,10 @@ class MainWindow(QMainWindow):
             if not getattr(item, "component_id", None):
                 item.component_id = self._generate_component_id()
             self._sync_next_component_id(item.component_id)
+
+        save_path = self.dialogue_manager.prompt_save_layout_path(self.file_manager.get_saved_dir())
+        if save_path is None:
+            return False
         save_path = self.file_manager.save_layout(
             model_name = self.building_model.name,
             n_zones = self.building_model.n_zones,
@@ -1010,6 +1014,7 @@ class MainWindow(QMainWindow):
                 "t_duration": self.building_model.t_duration,
                 "dt": self.building_model.dt,
             },
+            save_path = save_path,
         )
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         return str(save_path)

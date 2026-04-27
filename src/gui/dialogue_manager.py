@@ -159,3 +159,16 @@ class DialogueManager:
         if not load_path:
             return None
         return load_path
+    
+    def prompt_save_layout_path(self, start_dir):
+        """Prompt user to select a JSON layout file to load. Args: start_dir (str). Returns: str or None."""
+        save_path, _ = QFileDialog.getSaveFileName(
+            self.parent,
+            "Save Layout",
+            str(start_dir if Path(start_dir).exists() else Path.cwd()),
+            "JSON Files (*.json)",
+        )
+        if not save_path:
+            return None
+        save_path = str(Path(save_path).with_suffix(".json"))
+        return save_path

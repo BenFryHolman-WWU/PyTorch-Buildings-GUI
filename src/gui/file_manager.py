@@ -98,11 +98,11 @@ class FileManager:
         }
         return payload
 
-    def save_layout(self, model_name, n_zones, component_items, visual_connections, time_data):
+    def save_layout(self, model_name, n_zones, component_items, visual_connections, time_data, save_path):
         """Save the current building layout to a timestamped JSON file. Args: model_name (str), n_zones (int), component_items (list), visual_connections (list), time_data (dict). Returns: Path."""
         saved_dir = self.get_saved_dir()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_path = saved_dir / f"building_layout_{timestamp}.json"
+        #save_path = saved_dir / f"building_layout_{timestamp}.json" # change this
         payload = self.build_payload(model_name, n_zones, component_items, visual_connections, time_data)
         with open(save_path, "w", encoding = "utf-8") as json_file:
             json_file.write(self._format_json_with_inline_lists(payload) + "\n")
