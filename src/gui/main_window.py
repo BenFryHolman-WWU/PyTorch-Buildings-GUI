@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QCheckBox, QColorDialog, QComboBox, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QStatusBar, QTabWidget, QTreeWidget, QVBoxLayout, QWidget
 
 from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox
@@ -128,6 +129,7 @@ class MainWindow(QMainWindow):
             COMPONENTS,
             COMPONENT_ICON_NAMES,
             callbacks = {
+                "save_as": self.save_as_layout,
                 "save": self.save_layout,
                 "load": self.load_layout,
                 "run": self.run_simulation,
@@ -163,6 +165,12 @@ class MainWindow(QMainWindow):
         self.setup_mode_status_label()
         self.set_component_action_mode(None)
         self.refresh_component_list()
+        self.file_path = None
+        # add control s shortcut for save
+        save_action = QAction(self)
+        save_action.setShortcut("Ctrl+S")
+        save_action.triggered.connect(self.save_layout)
+        self.addAction(save_action)
 
 
     def setup_dependency_status_button(self):
@@ -993,7 +1001,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Deleted {count} component(s) in selected area.", 4000)
 
 
-    def save_layout(self):
+    def save_as_layout(self):
         """Save current building layout to JSON file. Returns: str."""
         component_items = [item for item in self.canvas.scene.items() if hasattr(item, "node") and hasattr(item, "label")]
         for item in component_items:
@@ -1004,6 +1012,33 @@ class MainWindow(QMainWindow):
         save_path = self.dialogue_manager.prompt_save_layout_path(self.file_manager.get_saved_dir())
         if save_path is None:
             return False
+        save_path = self.file_manager.save_layout(
+            model_name = self.building_model.name,
+            n_zones = self.building_model.n_zones,
+            component_items = component_items,
+            visual_connections = self.canvas.visual_connections,
+            time_data = {
+                "t_start": self.building_model.t_start,
+                "t_duration": self.building_model.t_duration,
+                "dt": self.building_model.dt,
+            },
+            save_path = save_path,
+        )
+        self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
+        self.file_path = save_path
+        return str(save_path)
+    
+    def save_layout(self):
+        """Save current building layout to JSON file. Returns: str."""
+        component_items = [item for item in self.canvas.scene.items() if hasattr(item, "node") and hasattr(item, "label")]
+        for item in component_items:
+            if not getattr(item, "component_id", None):
+                item.component_id = self._generate_component_id()
+            self._sync_next_component_id(item.component_id)
+
+        save_path = self.file_path
+        if save_path is None:
+            return self.save_as_layout()
         save_path = self.file_manager.save_layout(
             model_name = self.building_model.name,
             n_zones = self.building_model.n_zones,
@@ -1105,4 +1140,5 @@ class MainWindow(QMainWindow):
         self.refresh_component_list()
         self.canvas.center_view()
         self.statusBar().showMessage(f"Loaded layout from {load_path}", 4000)
+        self.file_path = load_path
         return True
