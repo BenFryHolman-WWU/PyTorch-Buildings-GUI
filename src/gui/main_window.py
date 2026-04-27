@@ -12,14 +12,16 @@ from .file_manager import FileManager
 from .header_bar import HeaderBar
 from .interactive_canvas import InteractiveCanvas
 from .state_manager import StateManager
+from .interactive_canvas import ControlPolicy
 
 
-COMPONENTS = [Envelope, RTU, VAVBox, SolarGains]
+COMPONENTS = [Envelope, RTU, VAVBox, SolarGains, ControlPolicy]
 COMPONENT_ICON_NAMES = {
     "Envelope": ["WIP_ICON.png"],
     "RTU": ["WIP_ICON.png"],
     "VAVBox": ["WIP_ICON.png"],
     "SolarGains": ["WIP_ICON.png"],
+    "ControlPolicy": ["WIP_ICON.png"]
 }
 
 

@@ -40,7 +40,7 @@ class SimulationRunner:
         dt = int(building_model.dt)
         t_rng = range(t_start, t_start + t_duration, dt)
         nodes = self._topological_sort(building_model)
-        data = self._build_input_data(component_items, t_rng)
+        data = self._build_input_data(component_items, t_rng, building_model)
         system = BuildingSystem(nodes, name = "GUIBuildingSystem")
         results = system.simulate(data = data)
         variables = select_variables(results)
@@ -51,11 +51,18 @@ class SimulationRunner:
         """Return nodes in topological order based on GUI connections. Args: building_model (BuildingModel). Returns: list."""
         graph = {node: set() for node in building_model.nodes}
         for connection in building_model.connections:
-            graph[connection.dstNode].add(connection.srcNode)
+            if connection.srcNode.name != "control":
+                graph[connection.dstNode].add(connection.srcNode)
         return list(TopologicalSorter(graph).static_order())
 
-
-    def _build_input_data(self, component_items, t_rng):
+    def _detect_control_policy(self, building_model):
+        policy = None
+        for connection in building_model.connections:
+            if connection.srcNode.name == "control" and connection.dstNode.name == "rtu":
+                policy = connection.srcNode.component
+        return policy
+                
+    def _build_input_data(self, component_items, t_rng, building_model):
         """Pre-compute time-series tensors for all external inputs. Args: component_items (list), t_rng (range). Returns: dict."""
         data = {}
         data["t"] = torch.tensor(list(t_rng), dtype = torch.float32).reshape(1, -1, 1)
@@ -63,6 +70,7 @@ class SimulationRunner:
             component = ci.component
             component_type = type(component).__name__
             key_map = self._EXTERNAL_INPUT_KEYS.get(component_type, {})
+            policy = self._detect_control_policy(building_model)
             if not key_map:
                 continue
             try:
@@ -79,7 +87,16 @@ class SimulationRunner:
                     series = torch.stack(
                         [fn(t, batch_size = 1) for t in t_rng], dim = 1
                     )
-                    data[data_key] = series
+                
+                    if policy and data_key == "T_supply_setpoint":
+                        value = policy.tu_T_supply_setpoint
+                        data[data_key] = torch.tensor([value for _ in t_rng], dtype = torch.float32).reshape(1, -1, 1)
+                        
+                    elif policy and data_key == "supply_airflow_setpoint":
+                        value = policy.rtu_supply_airflow_setpoint
+                        data[data_key] = torch.tensor([value for _ in t_rng], dtype = torch.float32).reshape(1, -1, 1)
+                    else:
+                        data[data_key] = series
                 except Exception as exc:
                     raise SimulationError(
                         f"Failed to build input '{data_key}' from {component_type}: {exc}"

@@ -190,6 +190,12 @@ class ComponentItem(QGraphicsRectItem):
                     max_solar_irradiance = 800.0,
                 )
                 node = BuildingNode(component, input_map = self._input_map_for("solar"), name = "solar")
+            case "ControlPolicy":
+                component = ControlPolicy(
+                    n_zones = n_zones
+                )
+                """We just make a node to be referenced by the connections"""
+                node = BuildingNode(component, input_map = {}, name = "control")
             case _:
                 raise ValueError(f"Unsupported component type: {name}")
         return component, node
@@ -242,12 +248,19 @@ class ComponentItem(QGraphicsRectItem):
             if isinstance(loaded_value, (int, float, list)):
                 setattr(self.component, prop, torch.tensor(loaded_value))
 
+class ControlPolicy(QGraphicsRectItem):
+    "tu_T_supply_setpoint is initialized as 285.15 K which is 12 C"
+    def __init__(self, n_zones, tu_T_supply_setpoint=torch.tensor(285.15), rtu_supply_airflow_setpoint=torch.tensor(1)):
+        self.tu_T_supply_setpoint = tu_T_supply_setpoint
+        self.rtu_supply_airflow_setpoint = rtu_supply_airflow_setpoint
+        self._state_ranges = {}
+        self._external_ranges = {}
+        super().__init__()
 
 class InteractiveCanvas(QGraphicsView):
     """A graphics view for displaying and interacting with building components."""
     
     zoom_changed = pyqtSignal(int)
-
 
     def __init__(self, building_model):
         """Initialize the canvas. Args: building_model (BuildingModel)."""

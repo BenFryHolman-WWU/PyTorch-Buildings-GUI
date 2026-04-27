@@ -113,8 +113,9 @@ class BuildingModel:
 
     def add_componentItem(self, component_item):
         """Add a component item and its node to the model. Args: component_item."""
+        """Does not add the control policies node as it is not callable"""
         self.componentItems.append(component_item)
-        if component_item.node not in self.nodes:
+        if (component_item.node not in self.nodes) and (component_item.node.name != "control"):
             self.add_node(component_item.node)
 
 

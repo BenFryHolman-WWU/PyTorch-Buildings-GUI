@@ -9,6 +9,7 @@ COMPONENT_MUTABLE_PROPERTIES = {
     "Envelope": ["R_env", "C_env", "R_internal", "adjacency"],
     "VAVBox": ["airflow_min", "airflow_max", "control_gain", "Q_reheat_max", "reheat_efficiency"],
     "SolarGains": ["window_area", "window_orientation", "window_shgc", "latitude_deg", "max_solar_irradiance"],
+    "ControlPolicy": ["tu_T_supply_setpoint", "rtu_supply_airflow_setpoint"]
 }
 
 
