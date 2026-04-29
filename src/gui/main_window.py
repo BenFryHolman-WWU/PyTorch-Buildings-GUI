@@ -168,9 +168,12 @@ class MainWindow(QMainWindow):
         self.set_component_action_mode(None)
         self.refresh_component_list()
         self.file_path = None
-        # add control s shortcut for save
+        # what's the last directory they saved to, or directory if file they loaded
+        self.last_dir = None
+        # control s shortcut for save
         save_action = QAction(self)
         save_action.setShortcut("Ctrl+S")
+        save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         save_action.triggered.connect(self.save_layout)
         self.addAction(save_action)
 
@@ -1011,7 +1014,7 @@ class MainWindow(QMainWindow):
                 item.component_id = self._generate_component_id()
             self._sync_next_component_id(item.component_id)
 
-        save_path = self.dialogue_manager.prompt_save_layout_path(self.file_manager.get_saved_dir())
+        save_path = self.dialogue_manager.prompt_save_layout_path(self.file_manager.get_saved_dir(self.last_dir))
         if save_path is None:
             return False
         save_path = self.file_manager.save_layout(
@@ -1028,6 +1031,7 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.file_path = save_path
+        self.last_dir = Path(save_path).parent
         return str(save_path)
     
     def save_layout(self):
@@ -1054,12 +1058,13 @@ class MainWindow(QMainWindow):
             save_path = save_path,
         )
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
+        self.last_dir = Path(save_path).parent
         return str(save_path)
 
 
     def load_layout(self):
         """Load building layout from JSON file. Returns: bool."""
-        load_path = self.dialogue_manager.prompt_load_layout_path(self.file_manager.get_saved_dir())
+        load_path = self.dialogue_manager.prompt_load_layout_path(self.file_manager.get_saved_dir(self.last_dir))
         if load_path is None:
             return False
         payload = self.file_manager.load_payload_from_path(load_path)
@@ -1143,4 +1148,5 @@ class MainWindow(QMainWindow):
         self.canvas.center_view()
         self.statusBar().showMessage(f"Loaded layout from {load_path}", 4000)
         self.file_path = load_path
+        self.last_dir = Path(load_path).parent
         return True

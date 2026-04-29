@@ -48,11 +48,18 @@ class FileManager:
             return "\n".join(lines)
         return json.dumps(value)
 
-    def get_saved_dir(self):
+    def get_saved_dir(self, last_dir):
         """Get or create the saved layouts directory. Returns: Path."""
-        saved_dir = Path.cwd() / "saved"
-        saved_dir.mkdir(parents = True, exist_ok = True)
-        return saved_dir
+        if last_dir is not None:
+            return last_dir
+
+        base_dir = Path(__file__).resolve().parents[2]
+        saved_dir = base_dir / "saved"
+
+        if saved_dir.exists():
+            return saved_dir
+
+        return base_dir
 
     def build_payload(self, model_name, n_zones, component_items, visual_connections, time_data):
         """Serialize building layout data into JSON-compatible dictionary. Args: model_name (str), n_zones (int), component_items (list), visual_connections (list), time_data (dict). Returns: dict."""
@@ -100,9 +107,6 @@ class FileManager:
 
     def save_layout(self, model_name, n_zones, component_items, visual_connections, time_data, save_path):
         """Save the current building layout to a timestamped JSON file. Args: model_name (str), n_zones (int), component_items (list), visual_connections (list), time_data (dict). Returns: Path."""
-        saved_dir = self.get_saved_dir()
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        #save_path = saved_dir / f"building_layout_{timestamp}.json" # change this
         payload = self.build_payload(model_name, n_zones, component_items, visual_connections, time_data)
         with open(save_path, "w", encoding = "utf-8") as json_file:
             json_file.write(self._format_json_with_inline_lists(payload) + "\n")
