@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PyTorch Buildings GUI")
         self.setGeometry(100, 100, 1500, 900)
         self.building_model = BuildingModel("Model")
-        self.canvas = InteractiveCanvas(self.building_model)
+        self.canvas = InteractiveCanvas(self.building_model, self.set_dirty)
         self.canvas.zoom_changed.connect(self.on_canvas_zoom_changed)
         self.canvas.component_click_handler = self.handle_component_click_action
         self.canvas.component_added_handler = self.on_component_added
@@ -133,6 +133,7 @@ class MainWindow(QMainWindow):
             callbacks = {
                 "save_as": self.save_as_layout,
                 "save": self.save_layout,
+                "new": self.new_page,
                 "load": self.load_layout,
                 "run": self.run_simulation,
                 "set_time": self.open_set_time_dialog,
@@ -168,6 +169,7 @@ class MainWindow(QMainWindow):
         self.set_component_action_mode(None)
         self.refresh_component_list()
         self.file_path = None
+        self.is_dirty = False # are there unsaved changes?
         # what's the last directory they saved to, or directory if file they loaded
         self.last_dir = None
         # control s shortcut for save
@@ -786,7 +788,7 @@ class MainWindow(QMainWindow):
         self._invalidate_plots()
         self.refresh_component_list()
         self.statusBar().showMessage(f"Added {component_name} ({component_item.component_id})", 2500)
-
+        self.is_dirty = True
 
     def arm_delete_component(self):
         """Toggle delete component mode on/off."""
@@ -816,7 +818,6 @@ class MainWindow(QMainWindow):
             return
         self.set_component_action_mode("area-delete")
         self.statusBar().showMessage("Area delete mode active: drag a box over components to remove.", 5000)
-
 
     def set_component_action_mode(self, mode):
         """Set current operation mode and sync button states. Args: mode (str or None)."""
@@ -1004,7 +1005,39 @@ class MainWindow(QMainWindow):
         self.refresh_component_list()
         self.set_component_action_mode(None)
         self.statusBar().showMessage(f"Deleted {count} component(s) in selected area.", 4000)
+    
 
+    def set_dirty(self, is_true):
+        self.is_dirty = is_true
+
+    def new_page(self):
+        if self.is_dirty:
+            reply = QMessageBox.warning(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Create a new page anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        self.canvas.clear_all()
+        self.next_component_id = 1
+        self.building_model.name = "Model"
+        self.building_model.update_n_zones(2)
+        self._update_zone_display()
+        self.building_model.set_time_param_in_seconds(
+            t_start = 5 * 60 * 60,
+            t_duration = 86400,
+            dt = 300,
+        )
+        self._invalidate_plots()
+        self.refresh_component_list()
+        self.canvas.center_view()
+        self.file_path = None
+        self.statusBar().showMessage("Created new project", 4000)
+        self.is_dirty = False
 
     def save_as_layout(self):
         """Save current building layout to JSON file. Returns: str."""
@@ -1032,6 +1065,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.file_path = save_path
         self.last_dir = Path(save_path).parent
+        self.is_dirty = False # no unsaved changes since you just saved them
         return str(save_path)
     
     def save_layout(self):
@@ -1059,11 +1093,23 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.last_dir = Path(save_path).parent
+        self.is_dirty = False # no unsaved changes since you just saved them
         return str(save_path)
 
 
     def load_layout(self):
         """Load building layout from JSON file. Returns: bool."""
+        if self.is_dirty:
+            reply = QMessageBox.warning(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Load different page anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+            
         load_path = self.dialogue_manager.prompt_load_layout_path(self.file_manager.get_saved_dir(self.last_dir))
         if load_path is None:
             return False
@@ -1149,4 +1195,21 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Loaded layout from {load_path}", 4000)
         self.file_path = load_path
         self.last_dir = Path(load_path).parent
+        # no unsaved changes since file you just opened was already changed
+        self.is_dirty = False 
         return True
+
+    def closeEvent(self, event):
+        if self.is_dirty:
+            reply = QMessageBox.warning(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. If you exit now they will be lost. Are you sure you want to exit?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                event.ignore()
+                return
+
+        event.accept()

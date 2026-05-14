@@ -1,6 +1,6 @@
 import math
 import torch
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QToolButton, QApplication, QGraphicsRectItem, QGraphicsTextItem, QMenu
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QToolButton, QApplication, QGraphicsRectItem, QGraphicsTextItem, QMenu, QDialog
 from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QPolygonF, QDrag
 from PyQt6.QtCore import Qt, QLineF, QPointF, pyqtSignal, QMimeData, QPoint
 from neuromancer.hvac.building import BuildingNode
@@ -76,6 +76,7 @@ class ComponentItem(QGraphicsRectItem):
         """Handle item changes like position and selection. Args: change, value. Returns: value."""
         if change == QGraphicsRectItem.GraphicsItemChange.ItemPositionHasChanged:
             self.canvas.update_connection_lines_for_item(self)
+            self.canvas.set_dirty(True) # might change how this is done later
         elif change == QGraphicsRectItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.setPen(self.selected_pen if bool(value) else self.normal_pen)
         return super().itemChange(change, value)
@@ -212,10 +213,17 @@ class ComponentItem(QGraphicsRectItem):
         elif selected_action == property_action:
             self.edit_properties()
 
-
     def edit_properties(self):
-        """Open the property editor dialog for this component."""
-        PropertyDialog(self.component, n_zones=self.building_model.n_zones).exec()
+        before = self.serialize_values()
+
+        dialog = PropertyDialog(self.component, n_zones=self.building_model.n_zones)
+
+        result = dialog.exec()
+
+        if result == QDialog.DialogCode.Accepted:
+            after = self.serialize_values()
+            if before != after:
+                self.canvas.set_dirty(True)
 
 
     def get_mutable_property_names(self):
@@ -262,7 +270,7 @@ class InteractiveCanvas(QGraphicsView):
     
     zoom_changed = pyqtSignal(int)
 
-    def __init__(self, building_model):
+    def __init__(self, building_model, set_dirty_callback = None):
         """Initialize the canvas. Args: building_model (BuildingModel)."""
         super().__init__()
         self.building_model = building_model
@@ -288,6 +296,11 @@ class InteractiveCanvas(QGraphicsView):
         self.tool_manager = CanvasToolManager(self)
         self.draw_grid()
         self._emit_zoom_changed()
+        self.set_dirty_callback = set_dirty_callback
+
+    def set_dirty(self, is_true):
+        if callable(self.set_dirty_callback):
+            self.set_dirty_callback(is_true)
 
 
     def resizeEvent(self, event):
@@ -402,6 +415,7 @@ class InteractiveCanvas(QGraphicsView):
         self.scene.addItem(item)
         if callable(self.component_added_handler):
             self.component_added_handler(item)
+        self.set_dirty(True)
         return item
 
 
@@ -428,6 +442,7 @@ class InteractiveCanvas(QGraphicsView):
                 self.visual_connections.remove(connection_data)
         self.building_model.remove_componentItem(component_item)
         self.scene.removeItem(component_item)
+        self.set_dirty(True)
 
 
     def update_connection_lines_for_item(self, component_item):
@@ -502,6 +517,7 @@ class InteractiveCanvas(QGraphicsView):
         )
         src_name = src_item.label.toPlainText() if hasattr(src_item, "label") else getattr(src_item.node, "name", "Source")
         dst_name = dst_item.label.toPlainText() if hasattr(dst_item, "label") else getattr(dst_item.node, "name", "Destination")
+        self.set_dirty(True)
         return True, f"Connection created: {src_name} -> {dst_name}."
 
 
