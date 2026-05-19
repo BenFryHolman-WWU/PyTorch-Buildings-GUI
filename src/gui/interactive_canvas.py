@@ -9,6 +9,8 @@ from .canvas_tool_manager import CanvasToolManager
 from .dialogue_manager import PropertyDialog, COMPONENT_MUTABLE_PROPERTIES
 from .state_manager import Connection
 
+from .undo_commands import AddComponentCommand
+
 
 class DragButton(QToolButton):
     """A toolbar button that supports drag and drop for components."""
@@ -270,7 +272,7 @@ class InteractiveCanvas(QGraphicsView):
     
     zoom_changed = pyqtSignal(int)
 
-    def __init__(self, building_model, set_dirty_callback = None):
+    def __init__(self, building_model, set_dirty_callback = None, stack = None):
         """Initialize the canvas. Args: building_model (BuildingModel)."""
         super().__init__()
         self.building_model = building_model
@@ -297,6 +299,7 @@ class InteractiveCanvas(QGraphicsView):
         self.draw_grid()
         self._emit_zoom_changed()
         self.set_dirty_callback = set_dirty_callback
+        self.stack = stack
 
     def set_dirty(self, is_true):
         if callable(self.set_dirty_callback):
@@ -405,17 +408,38 @@ class InteractiveCanvas(QGraphicsView):
         self.tool_manager.handle_drop_event(event)
 
 
-    def add_component(self, name, scene_pos = None, component_id = None, component_values = None):
-        """Add a component to the canvas. Args: name (str), scene_pos (QPointF, optional), component_id (str, optional), component_values (dict, optional). Returns: ComponentItem."""
+    # def add_component(self, name, scene_pos = None, component_id = None, component_values = None):
+    #     """Add a component to the canvas. Args: name (str), scene_pos (QPointF, optional), component_id (str, optional), component_values (dict, optional). Returns: ComponentItem."""
+    #     if scene_pos is None:
+    #         scene_pos = self.mapToScene(self.viewport().rect().center())
+    #     item = ComponentItem(name, scene_pos, self.building_model, self, component_id = component_id)
+    #     item.apply_serialized_values(component_values)
+    #     self.building_model.add_componentItem(item)
+    #     self.scene.addItem(item)
+    #     if callable(self.component_added_handler):
+    #         self.component_added_handler(item)
+    #     self.set_dirty(True)
+    #     return item
+    def add_component(self, name, scene_pos=None, component_id=None, component_values=None):
+        self.stack.push(AddComponentCommand(self, name, scene_pos, component_id, component_values))
+
+
+    def internal_add_component(self, name, scene_pos=None, component_id=None, component_values=None):
+        print("internal_add_component called")
         if scene_pos is None:
             scene_pos = self.mapToScene(self.viewport().rect().center())
-        item = ComponentItem(name, scene_pos, self.building_model, self, component_id = component_id)
+
+        item = ComponentItem(name, scene_pos, self.building_model, self, component_id=component_id)
         item.apply_serialized_values(component_values)
+
         self.building_model.add_componentItem(item)
         self.scene.addItem(item)
+
         if callable(self.component_added_handler):
             self.component_added_handler(item)
+
         self.set_dirty(True)
+
         return item
 
 

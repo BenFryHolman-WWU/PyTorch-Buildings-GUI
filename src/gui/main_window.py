@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QUndoStack
 from PyQt6.QtWidgets import QCheckBox, QColorDialog, QComboBox, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QSplitter, QStatusBar, QTabWidget, QTreeWidget, QVBoxLayout, QWidget
 
 from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox
@@ -76,7 +76,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PyTorch Buildings GUI")
         self.setGeometry(100, 100, 1500, 900)
         self.building_model = BuildingModel("Model")
-        self.canvas = InteractiveCanvas(self.building_model, self.set_dirty)
+        self.stack = QUndoStack()
+        self.canvas = InteractiveCanvas(self.building_model, self.set_dirty, self.stack)
         self.canvas.zoom_changed.connect(self.on_canvas_zoom_changed)
         self.canvas.component_click_handler = self.handle_component_click_action
         self.canvas.component_added_handler = self.on_component_added
@@ -135,6 +136,8 @@ class MainWindow(QMainWindow):
                 "save": self.save_layout,
                 "new": self.new_page,
                 "load": self.load_layout,
+                "undo": self.stack.undo,
+                "redo": self.stack.redo,
                 "run": self.run_simulation,
                 "set_time": self.open_set_time_dialog,
                 "add_connection": self.add_connection,
@@ -178,6 +181,16 @@ class MainWindow(QMainWindow):
         save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         save_action.triggered.connect(self.save_layout)
         self.addAction(save_action)
+
+
+        undo_action = self.stack.createUndoAction(self, "Undo")
+        undo_action.setShortcut("Ctrl+Z")
+
+        redo_action = self.stack.createRedoAction(self, "Redo")
+        redo_action.setShortcut("Ctrl+Y")
+
+        self.addAction(undo_action)
+        self.addAction(redo_action)
 
 
     def setup_dependency_status_button(self):
@@ -771,6 +784,12 @@ class MainWindow(QMainWindow):
         if suffix_number is None:
             return
         self.next_component_id = max(self.next_component_id, suffix_number + 1)
+
+    # def undo(self):
+    #     self.stack.undo()
+
+    # def redo(self):
+    #     self.stack.redo()
 
 
     def add_component(self, component_name):
