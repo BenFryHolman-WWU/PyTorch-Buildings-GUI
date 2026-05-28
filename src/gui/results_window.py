@@ -1,3 +1,5 @@
+"""Results dialog for embedded simulation plots."""
+
 import matplotlib
 matplotlib.use("QtAgg")
 
@@ -7,10 +9,12 @@ from PyQt6.QtCore import Qt
 
 
 class ResultsWindow(QDialog):
-    """Modal-less dialog showing an embedded matplotlib figure."""
 
     def __init__(self, fig, title="Simulation Results", parent=None):
-        """Initialize the results dialog with an embedded matplotlib figure. Args: fig (Figure), title (str), parent (QWidget, optional)."""
+        """
+        Summary: Init.
+        Args: fig
+        """
         super().__init__(parent)
         self.setWindowTitle(title)
         self.resize(820, 580)

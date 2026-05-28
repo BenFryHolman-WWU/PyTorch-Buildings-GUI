@@ -678,7 +678,6 @@ class RTU(BuildingComponent):
                 if hasattr(self, 'T_supply') and self.T_supply is not None:
                     T_supply = self.T_supply.expand(batch_size, self.n_zones)
                 else:
-                    print("Using default T_supply for zone temp in RTU")
                     T_supply = torch.full((batch_size, self.n_zones), T_supply_base,
                                           device=self.device, dtype=self.dtype)
 
@@ -711,7 +710,6 @@ class RTU(BuildingComponent):
                 if hasattr(self, 'supply_airflow') and self.supply_airflow is not None:
                     total_supply = self.supply_airflow
                 else:
-                    print("Using default supply_flow for zone temp in RTU")
                     total_supply = torch.full((batch_size, 1), supply_flow_expected,
                                               device=self.device, dtype=self.dtype)
 

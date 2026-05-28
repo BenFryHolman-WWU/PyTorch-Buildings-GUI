@@ -246,7 +246,6 @@ class VAVBox(BuildingComponent):
             dtype (torch.dtype): Tensor data type for computation.
         """
         super().__init__(params=locals(), learnable=learnable, device=device, dtype=dtype)
-        print("initializing VAV box component")
         # Initialize sub-components with zone-specific parameters
         self.damper = Damper(
             max_airflow=self.airflow_max,         # [n_zones] tensor from base class

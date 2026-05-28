@@ -1,3 +1,5 @@
+"""Application entry point for the PyTorch Buildings GUI."""
+
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication

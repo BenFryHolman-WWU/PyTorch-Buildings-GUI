@@ -225,7 +225,7 @@ class System(nn.Module):
             plt.show()
 
     def _check_unique_names(self):
-        num_unique = len([node.name for node in self.nodes])
+        num_unique = len({node.name for node in self.nodes})
         num_comp = len(self.nodes)
         assert num_unique == num_comp, \
             "All system nodes must have unique names " \
@@ -258,23 +258,31 @@ class System(nn.Module):
         """
         return data
 
-    def forward(self, input_dict):
+    def forward(self, input_dict, step_callback=None, stop_event=None, callback_interval=10):
         """
 
         :param input_dict: (dict: {str: Tensor}) Tensor shapes in dictionary are asssumed to be (batch, time, dim)
                                            If an init function should be written to assure that any 2-d or 1-d tensors
                                            have 3 dims.
+        :param step_callback: Optional callable(step, total_steps, data) called every callback_interval steps.
+        :param stop_event: Optional threading.Event; if set, rollout stops early.
+        :param callback_interval: How often (in steps) to invoke step_callback.
         :return: (dict: {str: Tensor}) data with outputs of nstep rollout of Node interactions
         """
         data = input_dict.copy()
         nsteps = self.nsteps if self.nsteps is not None else data[self.nstep_key].shape[1]  # Infer number of rollout steps
         data = self.init(data)  # Set initial conditions of the system
         for i in range(nsteps):
+            if stop_event is not None and stop_event.is_set():
+                break
 
             for node in self.nodes:
                 indata = {k: data[k][:, i] for k in node.input_keys}  # collect what the compute node needs from data nodes
                 outdata = node(indata)  # compute
                 data = self.cat(data, outdata)  # feed the data nodes
+
+            if step_callback is not None and (i % callback_interval == 0 or i == nsteps - 1):
+                step_callback(i + 1, nsteps, data)
 
         return data  # return recorded system measurements
 
@@ -389,14 +397,20 @@ class BuildingSystem(System):
 
     @beartype
     def forward(
-        self, 
-        input_dict: dict[str, torch.Tensor], 
-        warmup=5
+        self,
+        input_dict: dict[str, torch.Tensor],
+        warmup=5,
+        step_callback=None,
+        stop_event=None,
+        callback_interval=10,
     ):
         """
         Args:
             input_dict: Input data dictionary
             warmup: (int) Number of warmup iterations to converge on initial inputs default=5
+            step_callback: Optional callable(step, total_steps, data) for live progress updates.
+            stop_event: Optional threading.Event; if set, rollout stops early.
+            callback_interval: How often (in steps) to invoke step_callback.
 
         Returns:
             Dictionary of trajectory results from System.forward()
@@ -404,7 +418,12 @@ class BuildingSystem(System):
         data = input_dict.copy()
         data = self.setup(data=data)
         data = self._warmup_initialization(data, warmup)
-        return super().forward(data)
+        return super().forward(
+            data,
+            step_callback=step_callback,
+            stop_event=stop_event,
+            callback_interval=callback_interval,
+        )
 
     @beartype
     def _warmup_initialization(
@@ -450,17 +469,35 @@ class BuildingSystem(System):
         assert 't' in data, "Time must be in data dict"
 
         # Initialize missing input variables
+        n_steps = data['t'].shape[1]
         building_components = [n for n in self.nodes if isinstance(n, BuildingNode)]
+        # Collect every key that some node will produce during the rollout via cat.
+        all_node_output_keys = set()
+        for n in building_components:
+            all_node_output_keys.update(n.output_keys)
         for node in building_components:
             for k in node.input_keys:
                 if k not in data:
                     key = node.input_map[k]
                     if key in node.component._state_ranges:
+                        # States grow step-by-step via cat; only seed the first timestep.
                         data[k] = node.component.initial_state_functions()[key](batch_size).unsqueeze(1)
-                    else:
-                        data[k] = node.component.input_functions[key](
+                    elif k in all_node_output_keys:
+                        # Another node will produce this during the rollout — seed step 0
+                        # only and let cat grow it, exactly as before.
+                        init_val = node.component.input_functions[key](
                             data['t'][0, 0, 0].item(), batch_size
-                        ).unsqueeze(1)
+                        )
+                        data[k] = init_val.unsqueeze(1)
+                    else:
+                        # Truly external: no node ever produces this key (e.g. Q_solar or
+                        # Q_hvac when running a standalone Envelope with no SolarGains /
+                        # VAVBox). Expand to the full time horizon so data[k][:, i] works
+                        # for every rollout step without needing the cat mechanism.
+                        init_val = node.component.input_functions[key](
+                            data['t'][0, 0, 0].item(), batch_size
+                        )
+                        data[k] = init_val.unsqueeze(1).expand(-1, n_steps, -1).contiguous()
         return data
 
     @beartype
@@ -470,6 +507,7 @@ class BuildingSystem(System):
         t_dt: float = 300.0,  # 5 minutes in seconds
         t_duration: float = 86400.0,  # One day in seconds
         t_start: float = 18000.0,  # 5 AM in seconds
+        **kwargs,
     ) -> Dict[str, torch.Tensor]:
         """
         High-level building simulation interface. Really just a wrapper around the forward pass
@@ -483,13 +521,22 @@ class BuildingSystem(System):
         """
 
         if data is None:
+            if t_duration <= 0:
+                raise ValueError("Simulation duration must be greater than 0 seconds.")
+            if t_dt <= 0:
+                raise ValueError("Simulation time step must be greater than 0 seconds.")
             data = {}
             batch_size = 1
-            times = torch.arange(t_start, t_duration, t_dt)
+            times = torch.arange(t_start, t_start + t_duration, t_dt)
             data['t'] = times.unsqueeze(0).expand(batch_size, -1).unsqueeze(-1)
         else:
             assert 't' in data, "If passing in data to simulation, must include time!"
             # if self.get('verbose', True):
             #     print("Ignoring passed time parameters, extracting time from dataset")
 
-        return self.forward(data)
+        return self.forward(
+            data,
+            step_callback=kwargs.get('step_callback'),
+            stop_event=kwargs.get('stop_event'),
+            callback_interval=kwargs.get('callback_interval', 10),
+        )

@@ -384,8 +384,13 @@ class Envelope(BuildingComponent):
             'Q_hvac': Q_hvac,
         }
 
-        # Integrate over the time step
-        t_span = torch.tensor([t, t + dt], device=self.device, dtype=self.dtype)
+        # Integrate over the time step.
+        # Use float64 for t_span regardless of self.dtype: float32 loses precision at
+        # t_start ~ 18000–86400 s, causing torchdiffeq's adaptive dt to underflow to 0.
+        t_scalar = float(t.item() if isinstance(t, torch.Tensor) else t)
+        dt_scalar = float(dt.item() if isinstance(dt, torch.Tensor) else dt)
+        t_span = torch.tensor([t_scalar, t_scalar + dt_scalar],
+                               device=self.device, dtype=torch.float64)
 
         # ODE integration
         solution = odeint(

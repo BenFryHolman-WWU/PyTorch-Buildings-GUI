@@ -1,302 +1,89 @@
+"""Interactive graphics canvas for building components and connections."""
+
 import math
-import torch
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QToolButton, QApplication, QGraphicsRectItem, QGraphicsTextItem, QMenu, QDialog
-from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QPolygonF, QDrag
-from PyQt6.QtCore import Qt, QLineF, QPointF, pyqtSignal, QMimeData, QPoint
-from neuromancer.hvac.building import BuildingNode
-from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox
+from pathlib import Path
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QApplication, QGraphicsRectItem, QDialog
+from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QPolygonF
+from PyQt6.QtCore import Qt, QLineF, QPointF, pyqtSignal, QPoint, QRectF
 from .canvas_tool_manager import CanvasToolManager
-from .dialogue_manager import PropertyDialog, COMPONENT_MUTABLE_PROPERTIES
+from .icons import IconProvider
 from .state_manager import Connection
 
 from .undo_commands import AddComponentCommand
 
 
-class DragButton(QToolButton):
-    """A toolbar button that supports drag and drop for components."""
-    
-    def __init__(self, label, component_name = None):
-        """Initialize a drag button. Args: label (str), component_name (str, optional)."""
-        super().__init__()
-        self.setText(label)
-        self.component_name = component_name or label
-        self.drag_start_pos = QPoint()
+HVAC_CONNECTIONS = {
+    ("solar", "envelope"): [("solar.Q_solar", "Q_solar")],
+    ("envelope", "rtu"): [("envelope.T_zones", "T_return_zones")],
+    ("envelope", "vav"): [("envelope.T_zones", "T_zone")],
+    ("rtu", "vav"): [("rtu.T_supply", "T_supply_upstream"), ("rtu.P_supply", "P_duct")],
+    ("vav", "rtu"): [("vav.supply_airflow", "return_airflow_zones")],
+    ("vav", "envelope"): [("vav.Q_supply_flow", "Q_hvac")],
+}
+
+COMPONENT_GAP = 24.0
+CANVAS_SCENE_RECT = QRectF(-2400, -1800, 4800, 3600)
+
+COMPONENT_ICON_NAMES = {
+    "Envelope": ("RTU", "rtu", "rooftop_unit"),
+    "RTU": ("Envelope", "envelope", "building_envelope"),
+    "VAVBox": ("Vavbox", "vav_box", "vav"),
+    "SolarGains": ("SolarGains", "solar_gains", "solar"),
+}
 
 
-    def mousePressEvent(self, event):
-        """Handle mouse press to initiate drag. Args: event (QMouseEvent)."""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_start_pos = event.position().toPoint()
-        super().mousePressEvent(event)
-
-
-    def mouseMoveEvent(self, event):
-        """Handle mouse move to perform drag operation. Args: event (QMouseEvent)."""
-        if not (event.buttons() & Qt.MouseButton.LeftButton):
-            super().mouseMoveEvent(event)
-            return
-        if (event.position().toPoint() - self.drag_start_pos).manhattanLength() < QApplication.startDragDistance():
-            super().mouseMoveEvent(event)
-            return
-        drag = QDrag(self)
-        mime = QMimeData()
-        mime.setText(self.component_name)
-        drag.setMimeData(mime)
-        drag.exec(Qt.DropAction.MoveAction)
-        self.setDown(False)
-
-
-class ComponentItem(QGraphicsRectItem):
-    """Represents a building component in the canvas with graphics and properties."""
-    
-    MUTABLE_PROPERTIES = COMPONENT_MUTABLE_PROPERTIES
-
-    
-    def __init__(self, name, pos, building_model, canvas, component_id = None):
-        """Initialize a component item. Args: name (str), pos (QPointF), building_model (BuildingModel), canvas (InteractiveCanvas), component_id (str, optional)."""
-        super().__init__(0, 0, 120, 50)
-        self.building_model = building_model
-        self.canvas = canvas
-        self.component_id = component_id
-        self.normal_pen = QPen(QColor(50, 150, 200), 2)
-        self.selected_pen = QPen(QColor(30, 30, 30), 3)
-        self.setPos(pos)
-        self.setBrush(QColor(100, 200, 250, 180))
-        self.setPen(self.normal_pen)
-        self.setFlags(
-            QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable
-            | QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable
-            | QGraphicsRectItem.GraphicsItemFlag.ItemSendsGeometryChanges
-        )
-        self.label = QGraphicsTextItem(name, self)
-        self.label.setDefaultTextColor(Qt.GlobalColor.black)
-        self.label.setPos(60 - self.label.boundingRect().width() / 2, 25 - self.label.boundingRect().height() / 2)
-        self.component, self.node = self.createComponent(name)
-
-
-    def itemChange(self, change, value):
-        """Handle item changes like position and selection. Args: change, value. Returns: value."""
-        if change == QGraphicsRectItem.GraphicsItemChange.ItemPositionHasChanged:
-            self.canvas.update_connection_lines_for_item(self)
-            self.canvas.set_dirty(True) # might change how this is done later
-        elif change == QGraphicsRectItem.GraphicsItemChange.ItemSelectedHasChanged:
-            self.setPen(self.selected_pen if bool(value) else self.normal_pen)
-        return super().itemChange(change, value)
-
-
-    def mousePressEvent(self, event):
-        """Handle mouse press on component. Args: event (QGraphicsSceneMouseEvent)."""
-        super().mousePressEvent(event)
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.canvas.notify_component_clicked(self)
-
-
-    def _input_map_for(self, name):
-        """Return the explicit input map for a named component, mirroring hvac_example.py. Args: name (str). Returns: dict."""
-        maps = {
-            "solar": {
-                "T_outdoor":      "T_outdoor",
-                "weather_factor": "weather_factor",
-            },
-            "rtu": {
-                "T_outdoor":                  "T_outdoor",
-                "envelope.T_zones":           "T_return_zones",
-                "vav.supply_airflow":         "return_airflow_zones",
-                "T_supply_setpoint":          "T_supply_setpoint",
-                "supply_airflow_setpoint":    "supply_airflow_setpoint",
-                "rtu.damper_position":        "damper_position",
-                "rtu.valve_position":         "valve_position",
-                "rtu.T_supply":               "T_supply",
-                "rtu.integral_accumulator":   "integral_accumulator",
-            },
-            "vav": {
-                "envelope.T_zones":   "T_zone",
-                "T_setpoint":         "T_setpoint",
-                "rtu.T_supply":       "T_supply_upstream",
-                "rtu.P_supply":       "P_duct",
-                "vav.damper_position":"damper_position",
-                "vav.reheat_position":"reheat_position",
-            },
-            "envelope": {
-                "envelope.T_zones":  "T_zones",
-                "T_outdoor":         "T_outdoor",
-                "solar.Q_solar":     "Q_solar",
-                "Q_internal":        "Q_internal",
-                "vav.Q_supply_flow": "Q_hvac",
-            },
-        }
-        return maps.get(name, {})
-
-
-    def pad_attribute(self, values, n_zones):
-        """Pad or trim values list to zone count. Args: values (list), n_zones (int). Returns: list."""
-        values = list(values)
-        if len(values) > n_zones:
-            return values[:n_zones]
-        return values + [0.0] * (n_zones - len(values))
-
-
-    def pad_matrix(self, values, n_zones):
-        """Pad or trim matrix to zone count. Args: values (list), n_zones (int). Returns: list."""
-        matrix = [list(row) for row in values[:n_zones]]
-        for row_index, row in enumerate(matrix):
-            if len(row) > n_zones:
-                matrix[row_index] = row[:n_zones]
-            elif len(row) < n_zones:
-                matrix[row_index] = row + [0.0] * (n_zones - len(row))
-        while len(matrix) < n_zones:
-            matrix.append([0.0] * n_zones)
-        return matrix
-
-
-    def createComponent(self, name):
-        """Create a component instance based on type. Args: name (str). Returns: tuple (component, node)."""
-        n_zones = int(getattr(self.building_model, "n_zones", 2))
-        match name:
-            case "RTU":
-                component = RTU(
-                    n_zones = n_zones,
-                    airflow_max = 4.0,
-                    airflow_oa_min = 0.4,
-                    Q_coil_max = 20000.0,
-                    fan_power_per_flow = 800.0,
-                    cooling_COP = 3.2,
-                    heating_efficiency = 0.88,
-                )
-                node = BuildingNode(component, input_map = self._input_map_for("rtu"), name = "rtu")
-            case "Envelope":
-                component = Envelope(
-                    n_zones = n_zones,
-                    R_env = self.pad_attribute([0.1, 0.12], n_zones),
-                    C_env = self.pad_attribute([1.2e6, 1.0e6], n_zones),
-                    R_internal = 0.05,
-                    adjacency = self.pad_matrix([[1.0, 0.0], [0.0, 1.0]], n_zones),
-                )
-                node = BuildingNode(component, input_map = self._input_map_for("envelope"), name = "envelope")
-            case "VAVBox":
-                component = VAVBox(
-                    n_zones = n_zones,
-                    airflow_min = self.pad_attribute([0.1, 0.08], n_zones),
-                    airflow_max = self.pad_attribute([0.8, 0.6], n_zones),
-                    control_gain = self.pad_attribute([2.5, 2.0], n_zones),
-                    Q_reheat_max = self.pad_attribute([3000, 2500], n_zones),
-                    reheat_efficiency = 0.95,
-                )
-                node = BuildingNode(component, input_map = self._input_map_for("vav"), name = "vav")
-            case "SolarGains":
-                component = SolarGains(
-                    n_zones = n_zones,
-                    window_area = 25.0,
-                    window_orientation = self.pad_attribute([0.0, 90.0], n_zones),
-                    window_shgc = 0.6,
-                    latitude_deg = 40.0,
-                    max_solar_irradiance = 800.0,
-                )
-                node = BuildingNode(component, input_map = self._input_map_for("solar"), name = "solar")
-            case "ControlPolicy":
-                component = ControlPolicy(
-                    n_zones = n_zones
-                )
-                """We just make a node to be referenced by the connections"""
-                node = BuildingNode(component, input_map = {}, name = "control")
-            case _:
-                raise ValueError(f"Unsupported component type: {name}")
-        return component, node
-
-
-    def contextMenuEvent(self, event):
-        """Handle right-click context menu. Args: event (QGraphicsSceneContextMenuEvent)."""
-        menu = QMenu()
-        delete_action = menu.addAction("Delete")
-        property_action = menu.addAction("Update properties")
-        selected_action = menu.exec(event.screenPos())
-        if selected_action == delete_action:
-            self.canvas.remove_component_item(self)
-        elif selected_action == property_action:
-            self.edit_properties()
-
-    def edit_properties(self):
-        before = self.serialize_values()
-
-        dialog = PropertyDialog(self.component, n_zones=self.building_model.n_zones)
-
-        result = dialog.exec()
-
-        if result == QDialog.DialogCode.Accepted:
-            after = self.serialize_values()
-            if before != after:
-                self.canvas.set_dirty(True)
-
-
-    def get_mutable_property_names(self):
-        """Get list of mutable property names for this component. Returns: list."""
-        return self.MUTABLE_PROPERTIES.get(type(self.component).__name__, [])
-
-
-    def serialize_values(self):
-        """Serialize component property values to dict. Returns: dict."""
-        values = {}
-        for prop in self.get_mutable_property_names():
-            if not hasattr(self.component, prop):
-                continue
-            raw_value = getattr(self.component, prop)
-            if isinstance(raw_value, torch.Tensor):
-                values[prop] = raw_value.tolist()
-            else:
-                values[prop] = raw_value
-        return values
-
-
-    def apply_serialized_values(self, values):
-        """Apply serialized property values to component. Args: values (dict, optional)."""
-        if not isinstance(values, dict):
-            return
-        for prop in self.get_mutable_property_names():
-            if prop not in values:
-                continue
-            loaded_value = values[prop]
-            if isinstance(loaded_value, (int, float, list)):
-                setattr(self.component, prop, torch.tensor(loaded_value))
-
-class ControlPolicy(QGraphicsRectItem):
-    "tu_T_supply_setpoint is initialized as 285.15 K which is 12 C"
-    def __init__(self, n_zones, tu_T_supply_setpoint=torch.tensor(285.15), rtu_supply_airflow_setpoint=torch.tensor(1)):
-        self.tu_T_supply_setpoint = tu_T_supply_setpoint
-        self.rtu_supply_airflow_setpoint = rtu_supply_airflow_setpoint
-        self._state_ranges = {}
-        self._external_ranges = {}
-        super().__init__()
+from .canvas_items import ComponentItem, ControlPolicy, DragButton
 
 class InteractiveCanvas(QGraphicsView):
-    """A graphics view for displaying and interacting with building components."""
-    
+
     zoom_changed = pyqtSignal(int)
 
     def __init__(self, building_model, set_dirty_callback = None, stack = None):
-        """Initialize the canvas. Args: building_model (BuildingModel)."""
+        """
+        Summary: Init.
+        Args: building_model
+        """
         super().__init__()
         self.building_model = building_model
         self.scene = QGraphicsScene()
+        self.scene.setSceneRect(CANVAS_SCENE_RECT)
         self.setScene(self.scene)
+        self.icons = IconProvider(Path(__file__).resolve().parents[2] / "assets")
         self.setAcceptDrops(True)
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setBackgroundBrush(QBrush(QColor(240, 240, 245)))
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setBackgroundBrush(QBrush(QColor("#f0f2f8")))
+        self.setStyleSheet(
+            "QGraphicsView { background: #f0f2f8; border: none; }"
+            "QGraphicsView:focus { outline: none; }"
+        )
         self.zoom_factor = 1.0
-        self.min_zoom = 0.1
-        self.max_zoom = 10.0
+        self.min_zoom = 0.25
+        self.max_zoom = 2.5
         self.current_drag_item = None
         self.visual_connections = []
         self.component_click_handler = None
+        self.canvas_click_handler = None
         self.component_added_handler = None
         self.area_delete_handler = None
+        self.area_delete_confirm_handler = None
+        self.connection_deleted_handler = None
+        self.editing_enabled = True
+        self.exclusive_action_mode = None
+        self.connection_delete_mode = False
+        self.hovered_connection_data = None
         self.area_delete_mode = False
+        self.area_delete_preview_items = set()
+        self.area_delete_preview_connections = []
         self.rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
         self.rubber_band_origin = None
         self.tool_manager = CanvasToolManager(self)
-        self.draw_grid()
         self._emit_zoom_changed()
         self.set_dirty_callback = set_dirty_callback
         self.stack = stack
@@ -307,37 +94,32 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def resizeEvent(self, event):
-        """Handle canvas resize. Args: event (QResizeEvent)."""
         super().resizeEvent(event)
+        if hasattr(self, "tool_manager"):
+            self.tool_manager.enforce_zoom_bounds()
 
 
     def get_zoom_percent(self):
-        """Get current zoom percentage. Returns: int."""
         return self.tool_manager.get_zoom_percent()
 
 
     def _emit_zoom_changed(self):
-        """Emit zoom changed signal."""
         self.zoom_changed.emit(self.get_zoom_percent())
 
 
     def _apply_zoom(self, zoom_multiplier):
-        """Apply zoom multiplier via tool manager. Args: zoom_multiplier (float)."""
         self.tool_manager.apply_zoom(zoom_multiplier)
 
 
     def zoom_in(self):
-        """Zoom in via tool manager."""
         self.tool_manager.zoom_in()
 
 
     def zoom_out(self):
-        """Zoom out via tool manager."""
         self.tool_manager.zoom_out()
 
 
     def center_view(self):
-        """Center view on all component items."""
         component_items = [item for item in self.scene.items() if isinstance(item, ComponentItem)]
         if component_items:
             bounds = component_items[0].sceneBoundingRect()
@@ -348,40 +130,75 @@ class InteractiveCanvas(QGraphicsView):
             self.centerOn(0.0, 0.0)
 
 
-    def draw_grid(self):
-        """Draw background grid on the canvas."""
-        pen = QPen(QColor(200, 200, 200))
+    def drawBackground(self, painter, rect):
+        """
+        Summary: Drawbackground.
+        Args: rect
+        """
+        super().drawBackground(painter, rect)
         grid_size = 50
-        grid_range = 2000
-        for x in range(-grid_range, grid_range, grid_size):
-            self.scene.addLine(x, -grid_range, x, grid_range, pen)
-        for y in range(-grid_range, grid_range, grid_size):
-            self.scene.addLine(-grid_range, y, grid_range, y, pen)
+        left = math.floor(rect.left() / grid_size) * grid_size
+        top = math.floor(rect.top() / grid_size) * grid_size
+        lines = []
+        x = left
+        while x < rect.right():
+            lines.append(QLineF(x, rect.top(), x, rect.bottom()))
+            x += grid_size
+        y = top
+        while y < rect.bottom():
+            lines.append(QLineF(rect.left(), y, rect.right(), y))
+            y += grid_size
+        painter.setPen(QPen(QColor("#dfe4ef"), 1))
+        painter.drawLines(lines)
 
 
     def wheelEvent(self, event):
-        """Handle mouse wheel zoom. Args: event (QWheelEvent)."""
         self.tool_manager.handle_wheel_event(event)
 
 
     def mousePressEvent(self, event):
-        """Handle mouse press for rubber-band and component selection. Args: event (QMouseEvent)."""
+        """Summary: Mousepressevent."""
+        if self.editing_enabled and self.connection_delete_mode and event.button() == Qt.MouseButton.LeftButton:
+            connection_data = self._connection_at_view_pos(event.position().toPoint())
+            if connection_data is not None:
+                self.highlight_connection(connection_data)
+                self.remove_connection_data(connection_data)
+                event.accept()
+                return
+            if callable(self.canvas_click_handler):
+                self.canvas_click_handler()
+            event.accept()
+            return
+        if (
+            self.editing_enabled
+            and self.exclusive_action_mode in {"connect", "edit", "delete"}
+            and event.button() == Qt.MouseButton.LeftButton
+            and self.itemAt(event.position().toPoint()) is None
+        ):
+            if callable(self.canvas_click_handler):
+                self.canvas_click_handler()
+            event.accept()
+            return
         if self.tool_manager.handle_mouse_press_event(event):
             return
         super().mousePressEvent(event)
 
 
     def mouseMoveEvent(self, event):
-        """Handle mouse move for rubber-band updates. Args: event (QMouseEvent)."""
+        if self.editing_enabled and self.connection_delete_mode:
+            self.highlight_connection(self._connection_at_view_pos(event.position().toPoint()))
+            event.accept()
+            return
         if self.tool_manager.handle_mouse_move_event(event):
             return
         super().mouseMoveEvent(event)
 
 
     def mouseReleaseEvent(self, event):
-        """Handle mouse release for area selection deletion. Args: event (QMouseEvent)."""
         removed_count = self.tool_manager.handle_mouse_release_event(event)
         if removed_count is not None:
+            if removed_count == "handled":
+                return
             if callable(self.area_delete_handler):
                 self.area_delete_handler(removed_count)
             return
@@ -389,43 +206,72 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def set_area_delete_mode(self, enabled):
-        """Enable/disable area delete mode. Args: enabled (bool)."""
         self.tool_manager.set_area_delete_mode(enabled)
+        if not enabled:
+            self.clear_area_delete_preview()
+
+
+    def set_connection_delete_mode(self, enabled):
+        self.connection_delete_mode = bool(enabled) and self.editing_enabled
+        self.highlight_connection(None)
+        if self.connection_delete_mode:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.viewport().setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            if not self.area_delete_mode:
+                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.viewport().unsetCursor()
+
+
+    def set_editing_enabled(self, enabled):
+        """Summary: Set editing enabled."""
+        self.editing_enabled = bool(enabled)
+        if not self.editing_enabled:
+            self.set_area_delete_mode(False)
+            self.set_connection_delete_mode(False)
+            self.scene.clearSelection()
+        self.setAcceptDrops(self.editing_enabled)
+        for item in self.scene.items():
+            if isinstance(item, ComponentItem):
+                item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable, self.editing_enabled)
+                item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, self.editing_enabled)
 
 
     def dragEnterEvent(self, event):
-        """Handle drag enter for dropping components. Args: event (QDragEnterEvent)."""
+        if not self.editing_enabled:
+            event.ignore()
+            return
         self.tool_manager.handle_drag_enter_event(event)
 
 
     def dragMoveEvent(self, event):
-        """Handle drag move for component movement preview. Args: event (QDragMoveEvent)."""
+        if not self.editing_enabled:
+            event.ignore()
+            return
         self.tool_manager.handle_drag_move_event(event)
 
 
     def dropEvent(self, event):
-        """Handle component drop. Args: event (QDropEvent)."""
+        if not self.editing_enabled:
+            event.ignore()
+            return
         self.tool_manager.handle_drop_event(event)
 
 
-    # def add_component(self, name, scene_pos = None, component_id = None, component_values = None):
-    #     """Add a component to the canvas. Args: name (str), scene_pos (QPointF, optional), component_id (str, optional), component_values (dict, optional). Returns: ComponentItem."""
-    #     if scene_pos is None:
-    #         scene_pos = self.mapToScene(self.viewport().rect().center())
-    #     item = ComponentItem(name, scene_pos, self.building_model, self, component_id = component_id)
-    #     item.apply_serialized_values(component_values)
-    #     self.building_model.add_componentItem(item)
-    #     self.scene.addItem(item)
-    #     if callable(self.component_added_handler):
-    #         self.component_added_handler(item)
-    #     self.set_dirty(True)
-    #     return item
     def add_component(self, name, scene_pos=None, component_id=None, component_values=None):
-        self.stack.push(AddComponentCommand(self, name, scene_pos, component_id, component_values))
+        if self.stack is None:
+            return self.internal_add_component(name, scene_pos, component_id, component_values)
+        command = AddComponentCommand(self, name, scene_pos, component_id, component_values)
+        self.stack.push(command)
+        return command.component_item
 
 
     def internal_add_component(self, name, scene_pos=None, component_id=None, component_values=None):
-        print("internal_add_component called")
+        """
+        Summary: Internal add component.
+        Args: scene_pos, component_id, component_values
+        Returns: Return the computed value.
+        """
         if scene_pos is None:
             scene_pos = self.mapToScene(self.viewport().rect().center())
 
@@ -434,7 +280,8 @@ class InteractiveCanvas(QGraphicsView):
 
         self.building_model.add_componentItem(item)
         self.scene.addItem(item)
-
+        item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable, self.editing_enabled)
+        item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, self.editing_enabled)
         if callable(self.component_added_handler):
             self.component_added_handler(item)
 
@@ -444,7 +291,6 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def clear_all(self):
-        """Clear all components and connections from canvas."""
         for connection_data in list(self.visual_connections):
             self.scene.removeItem(connection_data["line_item"])
             self.scene.removeItem(connection_data["arrow_item"])
@@ -456,33 +302,180 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def remove_component_item(self, component_item):
-        """Remove a component and its connections from canvas. Args: component_item."""
+        if not self.editing_enabled:
+            return
+        self.area_delete_preview_items.discard(component_item)
         for connection_data in list(self.visual_connections):
             if connection_data["src_item"] == component_item or connection_data["dst_item"] == component_item:
-                self.scene.removeItem(connection_data["line_item"])
-                self.scene.removeItem(connection_data["arrow_item"])
-                if connection_data["connection"] in self.building_model.connections:
-                    self.building_model.remove_connection(connection_data["connection"])
-                self.visual_connections.remove(connection_data)
+                self.remove_connection_data(connection_data, notify=False)
         self.building_model.remove_componentItem(component_item)
         self.scene.removeItem(component_item)
         self.set_dirty(True)
 
 
+    def _set_connection_highlight(self, connection_data, highlighted):
+        """
+        Summary: Set connection highlight.
+        Args: connection_data
+        """
+        if connection_data is None:
+            return
+        color = QColor("#c04040") if highlighted else QColor("#5c6f96")
+        width = 6 if highlighted else 4
+        pen = QPen(color, width)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        connection_data["line_item"].setPen(pen)
+        connection_data["arrow_item"].setPen(QPen(color, width))
+        connection_data["arrow_item"].setBrush(QBrush(color))
+        connection_data["line_item"].setZValue(4 if highlighted else 0)
+        connection_data["arrow_item"].setZValue(5 if highlighted else 1)
+
+
+    def highlight_connection(self, connection_data):
+        if self.hovered_connection_data is connection_data:
+            return
+        self._set_connection_highlight(self.hovered_connection_data, False)
+        self.hovered_connection_data = connection_data
+        self._set_connection_highlight(self.hovered_connection_data, True)
+
+
+    def _component_items_in_scene_rect(self, scene_rect):
+        return [
+            item for item in self.scene.items()
+            if isinstance(item, ComponentItem) and scene_rect.intersects(item.sceneBoundingRect())
+        ]
+
+
+    def _connection_intersects_scene_rect(self, connection_data, scene_rect):
+        line = connection_data["line_item"].line()
+        line_rect = QRectF(line.p1(), line.p2()).normalized().adjusted(-4.0, -4.0, 4.0, 4.0)
+        return scene_rect.intersects(line_rect)
+
+
+    def _connections_in_scene_rect(self, scene_rect):
+        return [
+            connection_data for connection_data in self.visual_connections
+            if self._connection_intersects_scene_rect(connection_data, scene_rect)
+        ]
+
+
+    def clear_area_delete_preview(self):
+        for item in list(self.area_delete_preview_items):
+            if item.scene() is not None:
+                item.set_delete_preview(False)
+        for connection_data in list(self.area_delete_preview_connections):
+            if connection_data in self.visual_connections:
+                self._set_connection_highlight(connection_data, False)
+        self.area_delete_preview_items.clear()
+        self.area_delete_preview_connections.clear()
+
+
+    def set_area_delete_preview(self, scene_rect):
+        """
+        Summary: Set area delete preview.
+        Args: scene_rect
+        Returns: Return the computed value.
+        """
+        next_items = set(self._component_items_in_scene_rect(scene_rect))
+        next_connections = self._connections_in_scene_rect(scene_rect)
+        for item in self.area_delete_preview_items - next_items:
+            if item.scene() is not None:
+                item.set_delete_preview(False)
+        for item in next_items - self.area_delete_preview_items:
+            item.set_delete_preview(True)
+        for connection_data in list(self.area_delete_preview_connections):
+            if connection_data in next_connections:
+                continue
+            if connection_data in self.visual_connections:
+                self._set_connection_highlight(connection_data, False)
+        for connection_data in next_connections:
+            if connection_data not in self.area_delete_preview_connections:
+                self._set_connection_highlight(connection_data, True)
+        self.area_delete_preview_items = next_items
+        self.area_delete_preview_connections = next_connections
+        return list(next_items)
+
+
+    def remove_connection_data(self, connection_data, notify=True):
+        """
+        Summary: Remove connection data.
+        Args: connection_data
+        Returns: Return the computed value.
+        """
+        if notify and not self.editing_enabled:
+            return False
+        if connection_data not in self.visual_connections:
+            return False
+        affected_src_item = connection_data["src_item"]
+        affected_dst_item = connection_data["dst_item"]
+        if self.hovered_connection_data is connection_data:
+            self.hovered_connection_data = None
+        if connection_data in self.area_delete_preview_connections:
+            self.area_delete_preview_connections.remove(connection_data)
+        self.scene.removeItem(connection_data["line_item"])
+        self.scene.removeItem(connection_data["arrow_item"])
+        if connection_data["connection"] in self.building_model.connections:
+            self.building_model.remove_connection(connection_data["connection"])
+        self.visual_connections.remove(connection_data)
+        self._update_connection_pair_lines(affected_src_item, affected_dst_item)
+        if notify and callable(self.connection_deleted_handler):
+            self.connection_deleted_handler(connection_data)
+        return True
+
+
+    def _distance_to_segment(self, point, line):
+        """
+        Summary: Distance to segment.
+        Args: point
+        Returns: Return the computed value.
+        """
+        ax = line.x1()
+        ay = line.y1()
+        bx = line.x2()
+        by = line.y2()
+        px = point.x()
+        py = point.y()
+        dx = bx - ax
+        dy = by - ay
+        length_sq = dx * dx + dy * dy
+        if length_sq <= 1e-9:
+            return math.hypot(px - ax, py - ay)
+        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+        nearest_x = ax + t * dx
+        nearest_y = ay + t * dy
+        return math.hypot(px - nearest_x, py - nearest_y)
+
+
+    def _connection_at_view_pos(self, view_pos):
+        """
+        Summary: Connection at view pos.
+        Args: view_pos
+        Returns: Return the computed value.
+        """
+        scene_pos = self.mapToScene(view_pos)
+        threshold = max(12.0, 16.0 / max(self.zoom_factor, 0.001))
+        nearest = None
+        nearest_distance = threshold
+        for connection_data in self.visual_connections:
+            distance = self._distance_to_segment(scene_pos, connection_data["line_item"].line())
+            if distance <= nearest_distance:
+                nearest = connection_data
+                nearest_distance = distance
+        return nearest
+
+
     def update_connection_lines_for_item(self, component_item):
-        """Update connection line positions for component moves. Args: component_item."""
         for connection_data in self.visual_connections:
             if connection_data["src_item"] == component_item or connection_data["dst_item"] == component_item:
-                src_rect = connection_data["src_item"].sceneBoundingRect()
-                dst_rect = connection_data["dst_item"].sceneBoundingRect()
-                src_point = self._point_on_rect_edge(src_rect, dst_rect.center())
-                dst_point = self._point_on_rect_edge(dst_rect, src_rect.center())
-                connection_data["line_item"].setLine(QLineF(src_point.x(), src_point.y(), dst_point.x(), dst_point.y()))
-                self._update_arrow_item(connection_data["arrow_item"], src_point, dst_point)
+                self._update_connection_line_and_arrow(connection_data)
 
 
     def _point_on_rect_edge(self, rect, toward_point):
-        """Calculate intersection point on rect edge toward a point. Args: rect, toward_point. Returns: QPointF."""
+        """
+        Summary: Point on rect edge.
+        Args: rect, toward_point
+        Returns: Return the computed value.
+        """
         center = rect.center()
         dx = toward_point.x() - center.x()
         dy = toward_point.y() - center.y()
@@ -498,55 +491,138 @@ class InteractiveCanvas(QGraphicsView):
         return QPointF(center.x() + dx / scale, center.y() + dy / scale)
 
 
-    def _create_connection_graphics(self, src_item, dst_item):
-        """Create graphics for a connection line and arrow. Args: src_item, dst_item. Returns: tuple (line_item, arrow_item)."""
+    def _same_connection_pair(self, connection_data, src_item, dst_item):
+        return {
+            connection_data["src_item"],
+            connection_data["dst_item"],
+        } == {src_item, dst_item}
+
+
+    def _connection_points(self, connection_data):
+        src_item = connection_data["src_item"]
+        dst_item = connection_data["dst_item"]
         src_rect = src_item.sceneBoundingRect()
         dst_rect = dst_item.sceneBoundingRect()
         src_point = self._point_on_rect_edge(src_rect, dst_rect.center())
         dst_point = self._point_on_rect_edge(dst_rect, src_rect.center())
-        line_pen = QPen(QColor(70, 70, 70), 2)
+        return src_point, dst_point
+
+
+    def _update_connection_line_and_arrow(self, connection_data):
+        src_point, dst_point = self._connection_points(connection_data)
+        connection_data["line_item"].setLine(QLineF(src_point.x(), src_point.y(), dst_point.x(), dst_point.y()))
+        self._update_arrow_item(connection_data["arrow_item"], src_point, dst_point)
+
+
+    def _update_connection_pair_lines(self, src_item, dst_item):
+        for connection_data in self.visual_connections:
+            if self._same_connection_pair(connection_data, src_item, dst_item):
+                self._update_connection_line_and_arrow(connection_data)
+
+
+    def _create_connection_graphics(self, src_item, dst_item, mappings):
+        """
+        Summary: Create connection graphics.
+        Args: mappings
+        Returns: Return the computed value.
+        """
+        src_rect = src_item.sceneBoundingRect()
+        dst_rect = dst_item.sceneBoundingRect()
+        src_point = self._point_on_rect_edge(src_rect, dst_rect.center())
+        dst_point = self._point_on_rect_edge(dst_rect, src_rect.center())
+        line_pen = QPen(QColor("#5c6f96"), 4)
+        line_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         line_item = self.scene.addLine(src_point.x(), src_point.y(), dst_point.x(), dst_point.y(), line_pen)
-        arrow_item = self.scene.addPolygon(QPolygonF(), QPen(QColor(70, 70, 70), 2), QBrush(QColor(70, 70, 70)))
+        arrow_item = self.scene.addPolygon(QPolygonF(), QPen(QColor("#5c6f96"), 4), QBrush(QColor("#5c6f96")))
         self._update_arrow_item(arrow_item, src_point, dst_point)
         return line_item, arrow_item
 
 
     def _update_arrow_item(self, arrow_item, src_center, dst_center):
-        """Update arrow polygon for connection endpoint. Args: arrow_item, src_center (QPointF), dst_center (QPointF)."""
         dx = dst_center.x() - src_center.x()
         dy = dst_center.y() - src_center.y()
         theta = math.atan2(dy, dx)
-        arrow_size = 12.0
+        arrow_size = 17.0
         tip = QPointF(dst_center.x(), dst_center.y())
         left = QPointF(dst_center.x() - arrow_size * math.cos(theta - math.pi / 6), dst_center.y() - arrow_size * math.sin(theta - math.pi / 6))
         right = QPointF(dst_center.x() - arrow_size * math.cos(theta + math.pi / 6), dst_center.y() - arrow_size * math.sin(theta + math.pi / 6))
         arrow_item.setPolygon(QPolygonF([tip, left, right]))
 
 
-    def add_connection_between_items(self, src_item, dst_item, src_output = "output", dst_input = "input"):
-        """Create a connection between two component items and add graphics. Args: src_item (ComponentItem), dst_item (ComponentItem), src_output (str), dst_input (str). Returns: tuple (bool, str)."""
+    def available_connection_mappings(self, src_item, dst_item):
+        if src_item == dst_item:
+            return None
+        return HVAC_CONNECTIONS.get((src_item.node.name, dst_item.node.name))
+
+
+    def _resolve_connection_mappings(self, available_mappings, selected_mappings, src_output, dst_input):
+        """
+        Summary: Resolve connection mappings.
+        Args: available_mappings, selected_mappings, src_output, dst_input
+        Returns: Return the computed value.
+        """
+        if selected_mappings:
+            selected = [tuple(mapping) for mapping in selected_mappings]
+            return [mapping for mapping in available_mappings if mapping in selected]
+        if src_output != "output" or dst_input != "input":
+            src_values = {value.strip() for value in str(src_output).split(",") if value.strip()}
+            dst_values = {value.strip() for value in str(dst_input).split(",") if value.strip()}
+            resolved = [
+                mapping for mapping in available_mappings
+                if mapping[0] in src_values and mapping[1] in dst_values
+            ]
+            if resolved:
+                return resolved
+        return list(available_mappings)
+
+
+    def add_connection_between_items(self, src_item, dst_item, src_output = "output", dst_input = "input", mappings = None):
+        """
+        Summary: Add connection between items.
+        Args: src_output, dst_input, mappings
+        Returns: Return the computed value.
+        """
+        if not self.editing_enabled:
+            return False, "Simulation is running. Stop the simulation before editing connections."
         if src_item == dst_item:
             return False, "Source and destination components must be different."
+        available_mappings = self.available_connection_mappings(src_item, dst_item)
+        if available_mappings is None:
+            return False, (
+                "That connection is not part of the HVAC example wiring. "
+                "Use SolarGains -> Envelope, Envelope -> RTU/VAVBox, RTU -> VAVBox, "
+                "VAVBox -> RTU, or VAVBox -> Envelope."
+            )
+        for connection_data in self.visual_connections:
+            if connection_data["src_item"] == src_item and connection_data["dst_item"] == dst_item:
+                return False, "That component connection already exists."
+        mappings = self._resolve_connection_mappings(available_mappings, mappings, src_output, dst_input)
+        if not mappings:
+            return False, "Select at least one signal mapping for the connection."
+        src_output = ", ".join(src for src, _ in mappings)
+        dst_input = ", ".join(dst for _, dst in mappings)
         connection = Connection(src_item.node, src_output, dst_item.node, dst_input)
+        connection.mappings = mappings
         self.building_model.add_connection(connection)
-        line_item, arrow_item = self._create_connection_graphics(src_item, dst_item)
+        line_item, arrow_item = self._create_connection_graphics(src_item, dst_item, mappings)
+        connection_data = {
+            "src_item": src_item,
+            "dst_item": dst_item,
+            "line_item": line_item,
+            "arrow_item": arrow_item,
+            "connection": connection,
+        }
         self.visual_connections.append(
-            {
-                "src_item": src_item,
-                "dst_item": dst_item,
-                "line_item": line_item,
-                "arrow_item": arrow_item,
-                "connection": connection,
-            }
+            connection_data
         )
+        self._update_connection_pair_lines(src_item, dst_item)
         src_name = src_item.label.toPlainText() if hasattr(src_item, "label") else getattr(src_item.node, "name", "Source")
         dst_name = dst_item.label.toPlainText() if hasattr(dst_item, "label") else getattr(dst_item.node, "name", "Destination")
         self.set_dirty(True)
-        return True, f"Connection created: {src_name} -> {dst_name}."
+        return True, f"Connection created: {src_name} -> {dst_name} ({src_output})."
 
 
     def add_connection_between_selected(self):
-        """Create a connection between the two currently selected component items. Returns: tuple (bool, str)."""
         selected_items = [item for item in self.scene.selectedItems() if isinstance(item, ComponentItem)]
         if len(selected_items) != 2:
             return False, "Select exactly two components before adding a connection."
@@ -554,7 +630,37 @@ class InteractiveCanvas(QGraphicsView):
         return self.add_connection_between_items(src_item, dst_item)
 
 
+    def delete_selected(self, on_removed=None, on_done=None):
+        """
+        Summary: Delete selected.
+        Args: on_removed, on_done
+        """
+        if not self.editing_enabled:
+            return
+        selected = [item for item in self.scene.selectedItems() if isinstance(item, ComponentItem)]
+        if not selected:
+            return
+        for item in selected:
+            name = item.label.toPlainText() if hasattr(item, "label") else ""
+            self.remove_component_item(item)
+            if callable(on_removed):
+                on_removed(name)
+        if callable(on_done):
+            on_done()
+
+
+    def keyPressEvent(self, event):
+        if self.editing_enabled and event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self.delete_selected()
+            if callable(self.area_delete_handler):
+                self.area_delete_handler(0)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
     def notify_component_clicked(self, component_item):
-        """Fire the component click handler if one is registered. Args: component_item (ComponentItem)."""
+        if not self.editing_enabled:
+            return
         if callable(self.component_click_handler):
             self.component_click_handler(component_item)

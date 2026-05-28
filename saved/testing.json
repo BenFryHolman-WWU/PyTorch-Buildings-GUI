@@ -1,0 +1,52 @@
+{
+  "name": "Model",
+  "n_zones": 2,
+  "components": [
+    {
+      "id": "component-0001",
+      "type": "RTU",
+      "x": -112.0,
+      "y": -126.0,
+      "values": {
+        "airflow_max": 4.0,
+        "airflow_oa_min": 0.4000000059604645,
+        "Q_coil_max": 20000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.200000047683716,
+        "heating_efficiency": 0.8799999952316284
+      }
+    }
+  ],
+  "component_sections": {
+    "component-0001": {
+      "type": "RTU",
+      "position": {
+        "x": -112.0,
+        "y": -126.0
+      },
+      "values": {
+        "airflow_max": 4.0,
+        "airflow_oa_min": 0.4000000059604645,
+        "Q_coil_max": 20000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.200000047683716,
+        "heating_efficiency": 0.8799999952316284
+      }
+    }
+  },
+  "connections": [],
+  "time": {
+    "t_start": 18000.0,
+    "t_duration": 86400.0,
+    "dt": 300.0
+  },
+  "control_policy": {
+    "tu_T_supply_setpoint": 285.15,
+    "rtu_supply_airflow_setpoint": 1.0,
+    "use_control_policy_override": false
+  },
+  "input_data": {
+    "path": null,
+    "summary": {}
+  }
+}

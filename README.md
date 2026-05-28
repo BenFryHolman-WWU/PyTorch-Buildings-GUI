@@ -40,6 +40,19 @@ python src/main.py
 python src\main.py
 ```
 
+## Run Tests
+
+```bash
+source .venv/bin/activate
+python scripts/run_tests.py
+```
+
+The test runner uses `unittest` and shows a progress bar with the current test and pass/fail status.
+
+## UI Icons
+
+Add toolbar and component icons to `assets/icons/`. The UI checks this folder first and falls back to generated initials if an icon is missing. See `assets/icons/README.md` for recommended filenames.
+
 ## Project Structure
 
 ```

@@ -164,8 +164,6 @@ class Damper(Actuator):
             torch.Tensor: Required damper position [0-1], shape [batch_size, n_zones]
         """
 
-        print("This function currently takes pressure and doesn't use it!")
-
         # Normalize airflow to fraction of maximum capacity
         # Broadcasting: [batch_size, n_zones] / [n_zones] -> [batch_size, n_zones]
         flow_fraction = target_airflow / self.max_airflow

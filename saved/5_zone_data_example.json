@@ -1,0 +1,184 @@
+{
+  "name": "ASHRAE 5-Zone Data Example",
+  "n_zones": 5,
+  "components": [
+    {
+      "id": "component-0001",
+      "type": "SolarGains",
+      "x": 80.0,
+      "y": 80.0,
+      "values": {
+        "window_area": [25.0, 22.0, 28.0, 24.0, 20.0],
+        "window_orientation": [0.0, 90.0, 180.0, 270.0, 45.0],
+        "window_shgc": [0.6, 0.58, 0.62, 0.57, 0.55],
+        "latitude_deg": 40.0,
+        "max_solar_irradiance": 800.0
+      }
+    },
+    {
+      "id": "component-0002",
+      "type": "RTU",
+      "x": 360.0,
+      "y": 80.0,
+      "values": {
+        "airflow_max": 6.5,
+        "airflow_oa_min": 0.65,
+        "Q_coil_max": 8000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.2,
+        "heating_efficiency": 0.88
+      }
+    },
+    {
+      "id": "component-0003",
+      "type": "VAVBox",
+      "x": 640.0,
+      "y": 80.0,
+      "values": {
+        "airflow_min": [0.03, 0.03, 0.03, 0.03, 0.03],
+        "airflow_max": [0.22, 0.20, 0.23, 0.21, 0.18],
+        "control_gain": [0.5, 0.5, 0.5, 0.5, 0.5],
+        "Q_reheat_max": [4500.0, 4200.0, 4600.0, 4300.0, 4000.0],
+        "reheat_efficiency": [0.95, 0.95, 0.95, 0.95, 0.95]
+      }
+    },
+    {
+      "id": "component-0004",
+      "type": "Envelope",
+      "x": 360.0,
+      "y": 290.0,
+      "values": {
+        "R_env": [0.10, 0.12, 0.11, 0.13, 0.12],
+        "C_env": [1200000.0, 1000000.0, 1150000.0, 1050000.0, 950000.0],
+        "R_internal": [[0.05, 0.08, 1.00, 1.00, 0.10], [0.08, 0.05, 0.07, 1.00, 1.00], [1.00, 0.07, 0.05, 0.09, 1.00], [1.00, 1.00, 0.09, 0.05, 0.06], [0.10, 1.00, 1.00, 0.06, 0.05]],
+        "adjacency": [[1.0, 1.0, 0.0, 0.0, 1.0], [1.0, 1.0, 1.0, 0.0, 0.0], [0.0, 1.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0, 1.0], [1.0, 0.0, 0.0, 1.0, 1.0]]
+      }
+    }
+  ],
+  "component_sections": {
+    "component-0001": {
+      "type": "SolarGains",
+      "position": {
+        "x": 80.0,
+        "y": 80.0
+      },
+      "values": {
+        "window_area": [25.0, 22.0, 28.0, 24.0, 20.0],
+        "window_orientation": [0.0, 90.0, 180.0, 270.0, 45.0],
+        "window_shgc": [0.6, 0.58, 0.62, 0.57, 0.55],
+        "latitude_deg": 40.0,
+        "max_solar_irradiance": 800.0
+      }
+    },
+    "component-0002": {
+      "type": "RTU",
+      "position": {
+        "x": 360.0,
+        "y": 80.0
+      },
+      "values": {
+        "airflow_max": 6.5,
+        "airflow_oa_min": 0.65,
+        "Q_coil_max": 8000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.2,
+        "heating_efficiency": 0.88
+      }
+    },
+    "component-0003": {
+      "type": "VAVBox",
+      "position": {
+        "x": 640.0,
+        "y": 80.0
+      },
+      "values": {
+        "airflow_min": [0.03, 0.03, 0.03, 0.03, 0.03],
+        "airflow_max": [0.22, 0.20, 0.23, 0.21, 0.18],
+        "control_gain": [0.5, 0.5, 0.5, 0.5, 0.5],
+        "Q_reheat_max": [4500.0, 4200.0, 4600.0, 4300.0, 4000.0],
+        "reheat_efficiency": [0.95, 0.95, 0.95, 0.95, 0.95]
+      }
+    },
+    "component-0004": {
+      "type": "Envelope",
+      "position": {
+        "x": 360.0,
+        "y": 290.0
+      },
+      "values": {
+        "R_env": [0.10, 0.12, 0.11, 0.13, 0.12],
+        "C_env": [1200000.0, 1000000.0, 1150000.0, 1050000.0, 950000.0],
+        "R_internal": [[0.05, 0.08, 1.00, 1.00, 0.10], [0.08, 0.05, 0.07, 1.00, 1.00], [1.00, 0.07, 0.05, 0.09, 1.00], [1.00, 1.00, 0.09, 0.05, 0.06], [0.10, 1.00, 1.00, 0.06, 0.05]],
+        "adjacency": [[1.0, 1.0, 0.0, 0.0, 1.0], [1.0, 1.0, 1.0, 0.0, 0.0], [0.0, 1.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0, 1.0], [1.0, 0.0, 0.0, 1.0, 1.0]]
+      }
+    }
+  },
+  "connections": [
+    {
+      "src_id": "component-0001",
+      "dst_id": "component-0004",
+      "src_output": "solar.Q_solar",
+      "dst_input": "Q_solar",
+      "src": 0,
+      "dst": 3
+    },
+    {
+      "src_id": "component-0004",
+      "dst_id": "component-0002",
+      "src_output": "envelope.T_zones",
+      "dst_input": "T_return_zones",
+      "src": 3,
+      "dst": 1
+    },
+    {
+      "src_id": "component-0004",
+      "dst_id": "component-0003",
+      "src_output": "envelope.T_zones",
+      "dst_input": "T_zone",
+      "src": 3,
+      "dst": 2
+    },
+    {
+      "src_id": "component-0002",
+      "dst_id": "component-0003",
+      "src_output": "rtu.T_supply, rtu.P_supply",
+      "dst_input": "T_supply_upstream, P_duct",
+      "src": 1,
+      "dst": 2
+    },
+    {
+      "src_id": "component-0003",
+      "dst_id": "component-0002",
+      "src_output": "vav.supply_airflow",
+      "dst_input": "return_airflow_zones",
+      "src": 2,
+      "dst": 1
+    },
+    {
+      "src_id": "component-0003",
+      "dst_id": "component-0004",
+      "src_output": "vav.Q_supply_flow",
+      "dst_input": "Q_hvac",
+      "src": 2,
+      "dst": 3
+    }
+  ],
+  "time": {
+    "t_start": 0.0,
+    "t_duration": 604800.0,
+    "dt": 300.0
+  },
+  "control_policy": {
+    "tu_T_supply_setpoint": 295.15,
+    "rtu_supply_airflow_setpoint": 0.3
+  },
+  "input_data": {
+    "path": "/Users/benfryholman/Downloads/ASHRAE2006_Baseline_summer.csv",
+    "summary": {
+      "path": "/Users/benfryholman/Downloads/ASHRAE2006_Baseline_summer.csv",
+      "row_count": 10081,
+      "zone_count": 5,
+      "mapped_keys": ["T_outdoor", "weather_factor", "T_supply_setpoint", "supply_airflow_setpoint", "T_setpoint"]
+    }
+  }
+}

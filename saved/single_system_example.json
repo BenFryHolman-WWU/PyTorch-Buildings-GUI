@@ -1,0 +1,36 @@
+{
+  "name": "Single System Example",
+  "n_zones": 1,
+  "components": [
+    {
+      "id": "component-0001",
+      "type": "Envelope",
+      "x": 400,
+      "y": 200,
+      "values": {
+        "R_env": [0.1],
+        "C_env": [1200000.0],
+        "R_internal": [[0.0]],
+        "adjacency": [[1.0]]
+      }
+    }
+  ],
+  "component_sections": {
+    "component-0001": {
+      "type": "Envelope",
+      "position": {"x": 400, "y": 200},
+      "values": {
+        "R_env": [0.1],
+        "C_env": [1200000.0],
+        "R_internal": [[0.0]],
+        "adjacency": [[1.0]]
+      }
+    }
+  },
+  "connections": [],
+  "time": {
+    "t_start": 21600,
+    "t_duration": 86400,
+    "dt": 300
+  }
+}
