@@ -17,7 +17,7 @@ class SimulationError(Exception):
 
 class SimulationRunner:
 
-    _HVAC_NODE_ORDER = {
+    _HVAC_EXECUTION_PRIORITY = {
         "solar": 0,
         "rtu": 1,
         "vav": 2,
@@ -172,16 +172,27 @@ class SimulationRunner:
         Args: building_model
         Returns: Return the computed value.
         """
-        if all(getattr(node, "name", None) in self._HVAC_NODE_ORDER for node in building_model.nodes):
-            return sorted(building_model.nodes, key=lambda node: self._HVAC_NODE_ORDER[node.name])
         graph = {node: set() for node in building_model.nodes}
         for connection in building_model.connections:
             if connection.srcNode.name != "control":
                 graph[connection.dstNode].add(connection.srcNode)
         try:
-            return list(TopologicalSorter(graph).static_order())
-        except CycleError as exc:
-            raise SimulationError("Component connections contain a cycle. Remove the loop before running.") from exc
+            nodes = list(TopologicalSorter(graph).static_order())
+        except CycleError:
+            nodes = list(building_model.nodes)
+            return self._sort_by_hvac_priority(nodes)
+        if all(getattr(node, "name", None) in self._HVAC_EXECUTION_PRIORITY for node in nodes):
+            return self._sort_by_hvac_priority(nodes)
+        return nodes
+
+    def _sort_by_hvac_priority(self, nodes):
+        return sorted(
+            nodes,
+            key=lambda node: (
+                self._HVAC_EXECUTION_PRIORITY.get(getattr(node, "name", ""), len(self._HVAC_EXECUTION_PRIORITY)),
+                getattr(node, "name", ""),
+            ),
+        )
 
 
     def _validate_nodes(self, nodes):
@@ -218,6 +229,12 @@ class SimulationRunner:
                 connection.dstNode.input_map[src_key] = dst_keyword
         for node in building_model.nodes:
             node.input_keys = list(node.input_map)
+        self._apply_time_step_input(building_model)
+
+    def _apply_time_step_input(self, building_model):
+        for node in building_model.nodes:
+            node.input_map["dt"] = "dt"
+            node.input_keys = list(node.input_map)
 
     def _detect_control_policy(self, building_model):
         """
@@ -249,6 +266,8 @@ class SimulationRunner:
         """
         data = {}
         data["t"] = torch.tensor(list(t_rng), dtype=torch.float32).reshape(1, -1, 1)
+        dt = float(getattr(building_model, "dt", 1.0)) if building_model is not None else 1.0
+        data["dt"] = torch.full_like(data["t"], dt)
         policy = self._detect_control_policy(building_model) if building_model is not None else None
         for ci in component_items:
             component = ci.component

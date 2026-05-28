@@ -96,12 +96,12 @@ class FileManagerTests(unittest.TestCase):
 
         self.assertEqual(resolved, input_path)
 
-    def test_input_data_dir_defaults_to_assets_saved_data(self):
+    def test_input_data_dir_defaults_to_saved_inputdata(self):
         model = BuildingModel("load")
         manager = FileManager(model)
 
-        self.assertEqual(manager.get_input_data_dir().name, "saved_data")
-        self.assertEqual(manager.get_input_data_dir().parent.name, "assets")
+        self.assertEqual(manager.get_input_data_dir().name, "inputdata")
+        self.assertEqual(manager.get_input_data_dir().parent.name, "saved")
 
 
 if __name__ == "__main__":

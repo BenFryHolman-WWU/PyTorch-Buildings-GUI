@@ -5,7 +5,7 @@ import torch
 from test_support import ROOT
 
 from neuromancer.hvac.building import BuildingSystem, Node
-from neuromancer.hvac.building_components import Envelope
+from neuromancer.hvac.building_components import Envelope, RTU
 
 
 class HvacSystemTests(unittest.TestCase):
@@ -53,6 +53,26 @@ class HvacSystemTests(unittest.TestCase):
         self.assertEqual(tuple(results["T_outdoor"].shape), (1, 3, 1))
         self.assertEqual(tuple(results["Q_internal"].shape), (1, 3, 2))
         self.assertIn("envelope.T_zones", results)
+
+    def test_rtu_coil_output_is_limited_to_supply_setpoint_load(self):
+        rtu = RTU(n_zones=2, airflow_max=4.0, Q_coil_max=20000.0, fan_power_per_flow=800.0)
+
+        result = rtu.forward(
+            t=torch.tensor([[18000.0]]),
+            T_outdoor=torch.tensor([[294.15]]),
+            T_return_zones=torch.tensor([[296.15, 296.15]]),
+            return_airflow_zones=torch.tensor([[0.27, 0.27]]),
+            T_supply_setpoint=torch.tensor([[289.15]]),
+            supply_airflow_setpoint=torch.tensor([[0.54]]),
+            damper_position=torch.tensor([[0.135]]),
+            valve_position=torch.tensor([[1.0]]),
+            T_supply=torch.tensor([[296.15]]),
+            integral_accumulator=torch.tensor([[0.0]]),
+            dt=torch.tensor([[300.0]]),
+        )
+
+        self.assertAlmostEqual(float(result["T_supply"][0, 0]), 289.15, places=3)
+        self.assertLess(float(result["cooling_power"][0, 0]), 5625.0)
 
 
 if __name__ == "__main__":

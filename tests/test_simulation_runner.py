@@ -6,9 +6,11 @@ import torch
 from test_support import CanvasStub, get_qapp
 
 from PyQt6.QtCore import QPointF
+from PyQt6.QtWidgets import QTreeWidget
 from gui.interactive_canvas import ComponentItem, InteractiveCanvas
 from models.building_model import BuildingModel
 from simulation.runner import SimulationError, SimulationRunner
+from gui.state_manager import StateManager
 
 
 class SimulationRunnerTests(unittest.TestCase):
@@ -52,14 +54,14 @@ class SimulationRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(SimulationError, "Duplicate component node"):
             SimulationRunner().run(model)
 
-    def test_hvac_nodes_use_example_execution_order(self):
+    def test_hvac_nodes_use_simulator_execution_order(self):
         model = self._model_with_components(("Envelope", "SolarGains", "VAVBox", "RTU"))
 
         nodes = SimulationRunner()._topological_sort(model)
 
         self.assertEqual([node.name for node in nodes], ["solar", "rtu", "vav", "envelope"])
 
-    def test_canvas_connections_use_hvac_example_mappings(self):
+    def test_canvas_connections_use_simulator_mappings(self):
         model = BuildingModel("connections")
         canvas = InteractiveCanvas(model)
         solar = canvas.add_component("SolarGains", QPointF(0, 0), component_id="solar")
@@ -76,7 +78,7 @@ class SimulationRunnerTests(unittest.TestCase):
         ok, message = canvas.add_connection_between_items(solar, rtu)
 
         self.assertFalse(ok)
-        self.assertIn("not part of the HVAC example wiring", message)
+        self.assertIn("not supported by the HVAC simulator", message)
 
     def test_canvas_connection_can_use_selected_mapping_and_label(self):
         model = BuildingModel("selected-connection")
@@ -114,6 +116,23 @@ class SimulationRunnerTests(unittest.TestCase):
         self.assertNotIn("label_item", canvas.visual_connections[0])
         self.assertNotIn("label_item", canvas.visual_connections[1])
 
+    def test_connection_list_groups_mappings_under_component_pair(self):
+        model = BuildingModel("connection-list")
+        canvas = InteractiveCanvas(model)
+        rtu = canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+        vav = canvas.add_component("VAVBox", QPointF(150, 0), component_id="vav")
+        ok, message = canvas.add_connection_between_items(rtu, vav)
+        self.assertTrue(ok, message)
+        tree = QTreeWidget()
+
+        StateManager(model, canvas, QTreeWidget(), tree).refresh_connection_list()
+
+        root = tree.topLevelItem(0)
+        self.assertEqual(root.text(0), "1. RTU -> VAVBox")
+        self.assertEqual(root.childCount(), 2)
+        self.assertEqual(root.child(0).text(0), "rtu.T_supply -> T_supply_upstream")
+        self.assertEqual(root.child(1).text(0), "rtu.P_supply -> P_duct")
+
     def test_connections_update_component_input_maps_for_simulation(self):
         model = BuildingModel("maps")
         canvas = InteractiveCanvas(model)
@@ -147,14 +166,25 @@ class SimulationRunnerTests(unittest.TestCase):
         model.set_time_param_in_seconds(t_start=18000, t_duration=900, dt=300)
         t_rng = range(int(model.t_start), int(model.t_start + model.t_duration), int(model.dt))
 
-        data = SimulationRunner()._build_input_data(model.componentItems, t_rng)
+        data = SimulationRunner()._build_input_data(model.componentItems, t_rng, model)
 
         self.assertEqual(tuple(data["t"].shape), (1, 3, 1))
+        self.assertEqual(tuple(data["dt"].shape), (1, 3, 1))
+        self.assertTrue(torch.allclose(data["dt"], torch.full((1, 3, 1), 300.0)))
         for key in ("T_outdoor", "weather_factor", "Q_internal", "T_supply_setpoint", "T_setpoint"):
             self.assertIn(key, data)
             self.assertIsInstance(data[key], torch.Tensor)
             self.assertEqual(data[key].shape[0], 1)
             self.assertEqual(data[key].shape[1], 3)
+
+    def test_connection_maps_include_simulation_time_step(self):
+        model = self._model_with_components(("Envelope",))
+
+        SimulationRunner()._apply_connection_input_maps(model)
+
+        node = model.nodes[0]
+        self.assertEqual(node.input_map["dt"], "dt")
+        self.assertIn("dt", node.input_keys)
 
     def test_model_control_policy_overrides_rtu_external_inputs(self):
         model = self._model_with_components(("RTU",))

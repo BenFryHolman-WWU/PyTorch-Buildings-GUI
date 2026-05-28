@@ -500,27 +500,31 @@ class RTU(BuildingComponent):
         # STEP 7: CALCULATE FINAL SUPPLY CONDITIONS
         # =====================================================================
 
-        # Coil heat transfer based on mode and valve position
-        Q_coil_available = self.Q_coil_max * valve_position  # [W]
+        # Coil heat transfer based on mode and valve position.  The valve limits
+        # available capacity, but the coil should only use the load required to
+        # reach the supply-air setpoint; otherwise low-flow operation can
+        # overcool or overheat the stream far past the setpoint.
+        safe_airflow = torch.clamp(supply_airflow, min=0.01)  # [kg/s]
+        Q_coil_available = self.Q_coil_max * valve_position * self.coil_eff  # [W]
+        Q_coil_required = (T_supply_setpoint - T_mixed_air) * safe_airflow * self.cp_air  # [W]
         Q_coil_actual = torch.zeros_like(Q_coil_available)  # [W]
 
         # Apply coil capacity based on operating mode
         cooling_active = cooling_mode & (valve_position > 0.01)  # [bool]
         Q_coil_actual = torch.where(
             cooling_active,
-            -Q_coil_available * self.coil_eff,  # [W] Negative for cooling
+            torch.minimum(torch.maximum(Q_coil_required, -Q_coil_available), torch.zeros_like(Q_coil_required)),  # [W] Negative for cooling
             Q_coil_actual  # [W]
         )
 
         heating_active = heating_mode & (valve_position > 0.01)  # [bool]
         Q_coil_actual = torch.where(
             heating_active,
-            Q_coil_available * self.coil_eff,  # [W] Positive for heating
+            torch.maximum(torch.minimum(Q_coil_required, Q_coil_available), torch.zeros_like(Q_coil_required)),  # [W] Positive for heating
             Q_coil_actual  # [W]
         )
 
         # Final supply air temperature
-        safe_airflow = torch.clamp(supply_airflow, min=0.01)  # [kg/s]
         delta_T_coil = Q_coil_actual / (safe_airflow * self.cp_air)  # [W] / ([kg/s] * [J/kg/K]) = [K]
         T_supply_final = T_mixed_air + delta_T_coil  # [K]
         T_supply_final = torch.clamp(T_supply_final, 250.0, 350.0)  # [K]

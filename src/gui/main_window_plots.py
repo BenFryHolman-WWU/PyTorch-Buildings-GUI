@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QColorDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget, QWidgetAction
+from PyQt6.QtWidgets import QColorDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget, QWidgetAction
 
 from .main_window_helpers import OPACITY_STEPS, LineStyleButton, LineStylePreviewButton, _button_style, _line_toggle_style, _plot_settings_title
 

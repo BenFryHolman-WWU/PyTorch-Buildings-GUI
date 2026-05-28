@@ -99,8 +99,8 @@ class FileManager:
             dirs.append(Path(layout_path).parent)
 
         dirs.extend([
-            base_dir / "assets" / "saved_data",
             base_dir / "saved" / "inputdata",
+            base_dir / "assets" / "saved_data",
             base_dir / "assets",
             Path.home() / "Downloads",
         ])

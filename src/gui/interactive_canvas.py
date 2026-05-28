@@ -589,7 +589,7 @@ class InteractiveCanvas(QGraphicsView):
         available_mappings = self.available_connection_mappings(src_item, dst_item)
         if available_mappings is None:
             return False, (
-                "That connection is not part of the HVAC example wiring. "
+                "That connection is not supported by the HVAC simulator. "
                 "Use SolarGains -> Envelope, Envelope -> RTU/VAVBox, RTU -> VAVBox, "
                 "VAVBox -> RTU, or VAVBox -> Envelope."
             )

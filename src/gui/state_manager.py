@@ -65,15 +65,30 @@ class StateManager:
         self.connection_list.clear()
         for index, connection_data in enumerate(self.canvas.visual_connections, start = 1):
             root = QTreeWidgetItem(self.connection_list)
+            src_item = connection_data.get("src_item")
+            dst_item = connection_data.get("dst_item")
+            src_name = self._connection_item_name(src_item, "Source")
+            dst_name = self._connection_item_name(dst_item, "Destination")
+            root.setText(0, f"{index}. {src_name} -> {dst_name}")
             mappings = getattr(connection_data.get("connection"), "mappings", None)
             if mappings:
-                first_src, first_dst = mappings[0]
-                root.setText(0, f"{index}. {first_src} -> {first_dst}")
-                for src_key, dst_key in mappings[1:]:
+                for src_key, dst_key in mappings:
                     child = QTreeWidgetItem(root)
                     child.setText(0, f"{src_key} -> {dst_key}")
             else:
                 connection = connection_data.get("connection")
                 src_output = getattr(connection, "srcOutput", "output")
                 dst_input = getattr(connection, "dstInput", "input")
-                root.setText(0, f"{index}. {src_output} -> {dst_input}")
+                child = QTreeWidgetItem(root)
+                child.setText(0, f"{src_output} -> {dst_input}")
+
+    def _connection_item_name(self, item, fallback):
+        if item is None:
+            return fallback
+        label = getattr(item, "label", None)
+        if label is not None and hasattr(label, "toPlainText"):
+            text = label.toPlainText()
+            if text:
+                return text
+        node = getattr(item, "node", None)
+        return getattr(node, "name", fallback)
