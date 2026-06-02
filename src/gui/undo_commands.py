@@ -29,3 +29,35 @@ class AddComponentCommand(QUndoCommand):
 
     def undo(self):
         self.canvas.remove_component_item(self.component_item)
+
+
+
+
+class AddConnectionCommand(QUndoCommand):
+    def __init__(self, canvas, src_item, dst_item, src_output="output", dst_input="input", mappings=None):
+        super().__init__("Add Connection")
+
+        self.canvas = canvas
+        self.src_item = src_item
+        self.dst_item = dst_item
+        self.src_output = src_output
+        self.dst_input = dst_input
+        self.mappings = mappings
+
+        # this will be filled during redo
+        self.connection_data = None
+        self.success = False
+        self.msg = ""
+
+    def redo(self):
+        # create the connection through the canvas
+        self.success, self.msg, self.connection_data = self.canvas.internal_add_connection_between_items(
+            self.src_item,
+            self.dst_item,
+            self.src_output,
+            self.dst_input,
+            self.mappings
+        )
+
+    def undo(self):
+        self.canvas.remove_connection_data(self.connection_data)
