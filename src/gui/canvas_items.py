@@ -3,7 +3,7 @@
 import torch
 from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt, QMimeData
 from PyQt6.QtGui import QBrush, QColor, QDrag, QPen, QPixmap
-from PyQt6.QtWidgets import QApplication, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsTextItem, QMenu, QToolButton
+from PyQt6.QtWidgets import QApplication, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsTextItem, QMenu, QToolButton, QDialog
 
 from neuromancer.hvac.building import BuildingNode
 from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox
