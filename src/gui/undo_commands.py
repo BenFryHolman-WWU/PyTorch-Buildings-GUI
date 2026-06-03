@@ -60,4 +60,27 @@ class AddConnectionCommand(QUndoCommand):
         )
 
     def undo(self):
-        self.canvas.remove_connection_data(self.connection_data)
+        self.canvas.internal_remove_connection_data(self.connection_data)
+
+
+
+class DeleteConnectionCommand(QUndoCommand):
+    def __init__(self, canvas, connection_data, notify=True):
+        super().__init__("Delete Connection")
+
+        self.canvas = canvas
+        self.connection_data = connection_data
+        self.notify = notify
+        self.success = False
+
+    def redo(self):
+        self.success = self.canvas.internal_remove_connection_data(self.connection_data, self.notify)
+
+    def undo(self):
+        _, _, self.connection_data = self.canvas.internal_add_connection_between_items(
+            self.connection_data["src_item"],
+            self.connection_data["dst_item"],
+            self.connection_data["connection"].srcOutput,
+            self.connection_data["connection"].dstInput,
+            getattr(self.connection_data["connection"], "mappings", None)
+        )

@@ -9,7 +9,7 @@ from .canvas_tool_manager import CanvasToolManager
 from .icons import IconProvider
 from .state_manager import Connection
 
-from .undo_commands import AddComponentCommand, AddConnectionCommand
+from .undo_commands import AddComponentCommand, AddConnectionCommand, DeleteConnectionCommand
 
 
 HVAC_CONNECTIONS = {
@@ -397,6 +397,13 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def remove_connection_data(self, connection_data, notify=True):
+        if self.stack is None:
+            return self.internal_remove_connection_data(connection_data, notify)
+        command = DeleteConnectionCommand(self, connection_data, notify)
+        self.stack.push(command)
+        return command.success
+
+    def internal_remove_connection_data(self, connection_data, notify=True):
         """
         Summary: Remove connection data.
         Args: connection_data
