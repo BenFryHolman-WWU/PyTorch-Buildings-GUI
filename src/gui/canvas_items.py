@@ -9,6 +9,7 @@ from neuromancer.hvac.building import BuildingNode
 from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox
 
 from .dialogue_manager import COMPONENT_MUTABLE_PROPERTIES, PropertyDialog
+from .undo_commands import MoveComponentCommand
 
 
 COMPONENT_GAP = 24.0
@@ -76,6 +77,7 @@ class ComponentItem(QGraphicsRectItem):
         self._is_dragging = False
         self._delete_preview = False
         self.setPos(pos)
+        self.start_pos = pos
         self.setBrush(self.normal_brush)
         self.setPen(self.normal_pen)
         self.setAcceptHoverEvents(True)
@@ -113,7 +115,6 @@ class ComponentItem(QGraphicsRectItem):
     def itemChange(self, change, value):
         if change == QGraphicsRectItem.GraphicsItemChange.ItemPositionHasChanged:
             self.canvas.update_connection_lines_for_item(self)
-            self.canvas.set_dirty(True)
             self._update_overlap_preview()
         elif change == QGraphicsRectItem.GraphicsItemChange.ItemSelectedHasChanged:
             if not self._delete_preview:
@@ -234,6 +235,7 @@ class ComponentItem(QGraphicsRectItem):
             return
         if event.button() == Qt.MouseButton.LeftButton:
             self._is_dragging = True
+            self.start_pos = self.pos() # record start position
         super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             self.canvas.notify_component_clicked(self)
@@ -246,6 +248,10 @@ class ComponentItem(QGraphicsRectItem):
             if self._overlaps_component_barrier():
                 self.setPos(self._non_overlapping_position(self.pos()))
             self._update_overlap_preview()
+
+            end_pos = self.pos()
+            if self.canvas.stack is not None and end_pos != self.start_pos:
+                self.canvas.stack.push(MoveComponentCommand(self, self.start_pos, end_pos))
 
 
     def _input_map_for(self, name):

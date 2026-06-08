@@ -195,8 +195,14 @@ class CanvasToolManager:
                 self.canvas.clear_area_delete_preview()
                 event.accept()
                 return 0
+
+        if to_remove and self.canvas.stack is not None:
+            self.canvas.stack.beginMacro("Delete Area")
         for item in to_remove:
             self.canvas.remove_component_item(item)
+        if to_remove and self.canvas.stack is not None:
+            self.canvas.stack.endMacro()
+
         self.canvas.clear_area_delete_preview()
         event.accept()
         return len(to_remove)

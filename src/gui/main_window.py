@@ -240,5 +240,7 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
         self.addAction(self.redo_action)
         self.stack.canUndoChanged.connect(self._set_undo_enabled)
         self.stack.canRedoChanged.connect(self._set_redo_enabled)
+        self.stack.cleanChanged.connect(lambda clean: self.set_dirty(not clean))
         self._set_undo_enabled(self.stack.canUndo())
         self._set_redo_enabled(self.stack.canRedo())
+        self.canvas.connection_added_handler = self.on_connection_added # new
