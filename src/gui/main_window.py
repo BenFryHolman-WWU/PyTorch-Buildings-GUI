@@ -277,11 +277,14 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
         self.stack.canUndoChanged.connect(self._set_undo_enabled)
         self.stack.canRedoChanged.connect(self._set_redo_enabled)
         self.stack.indexChanged.connect(self._on_undo_stack_changed)
+        self.stack.cleanChanged.connect(lambda clean: self.set_dirty(not clean))
         self._set_undo_enabled(self.stack.canUndo())
         self._set_redo_enabled(self.stack.canRedo())
+        self.canvas.connection_added_handler = self.on_connection_added
 
     def _on_undo_stack_changed(self):
         try:
+            self.set_dirty(not self.stack.isClean())
             self._invalidate_plots()
             self.refresh_component_list()
             self.refresh_connection_list()

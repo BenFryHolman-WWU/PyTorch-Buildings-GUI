@@ -405,6 +405,7 @@ class MainWindowProjectMixin:
         self.file_path = save_path
         self.last_dir = Path(save_path).parent
         self.is_dirty = False
+        self.stack.setClean()
         return str(save_path)
 
     def save_layout(self):
@@ -436,6 +437,7 @@ class MainWindowProjectMixin:
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.last_dir = Path(save_path).parent
         self.is_dirty = False
+        self.stack.setClean()
         return str(save_path)
 
     def load_layout(self):
@@ -596,3 +598,8 @@ class MainWindowProjectMixin:
             enable_override=bool(values.get("use_control_policy_override", False)),
         )
         self._sync_control_policy_inputs()
+
+
+    def on_connection_added(self):
+        self._invalidate_plots()
+        self.refresh_connection_list()

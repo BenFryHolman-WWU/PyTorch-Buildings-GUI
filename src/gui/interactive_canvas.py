@@ -9,7 +9,13 @@ from .canvas_tool_manager import CanvasToolManager
 from .icons import IconProvider
 from .state_manager import Connection
 
-from .undo_commands import AddComponentCommand, AddConnectionCommand, DeleteComponentsCommand, DeleteConnectionCommand
+from .undo_commands import (
+    AddComponentCommand,
+    AddConnectionCommand,
+    DeleteComponentCommand,
+    DeleteComponentsCommand,
+    DeleteConnectionCommand,
+)
 
 
 HVAC_CONNECTIONS = {
@@ -87,11 +93,45 @@ class InteractiveCanvas(QGraphicsView):
         self._emit_zoom_changed()
         self.set_dirty_callback = set_dirty_callback
         self.stack = stack
+        self.connection_added_handler = None
 
     def set_dirty(self, is_true):
         if callable(self.set_dirty_callback):
             self.set_dirty_callback(is_true)
 
+    def _restore_connection_data(self, connection_data):
+        """Re-add a previously removed connection (for undo support)."""
+        if connection_data["connection"] not in self.building_model.connections:
+            self.building_model.add_connection(connection_data["connection"])
+        if connection_data["line_item"].scene() is None:
+            self.scene.addItem(connection_data["line_item"])
+        if connection_data["arrow_item"].scene() is None:
+            self.scene.addItem(connection_data["arrow_item"])
+        if connection_data not in self.visual_connections:
+            self.visual_connections.append(connection_data)
+
+        # Reset highlight state in case it was red when deleted
+        if self.hovered_connection_data is connection_data:
+            self.hovered_connection_data = None
+        self._set_connection_highlight(connection_data, False)
+
+        self._update_connection_pair_lines(
+            connection_data["src_item"], connection_data["dst_item"]
+        )
+        if callable(self.connection_added_handler):
+            self.connection_added_handler()
+
+
+    def _restore_component_item(self, component_item):
+        if component_item.scene() is None:
+            self.scene.addItem(component_item)
+        if component_item not in self.building_model.componentItems:
+            self.building_model.add_componentItem(component_item)
+        component_item.set_delete_preview(False)  # reset any red preview state
+        component_item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsMovable, self.editing_enabled)
+        component_item.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, self.editing_enabled)
+        if callable(self.component_added_handler):
+            self.component_added_handler(component_item)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -290,8 +330,6 @@ class InteractiveCanvas(QGraphicsView):
         if callable(self.component_added_handler):
             self.component_added_handler(item)
 
-        self.set_dirty(True)
-
         return item
 
 
@@ -328,13 +366,20 @@ class InteractiveCanvas(QGraphicsView):
     def remove_component_item(self, component_item):
         if not self.editing_enabled:
             return
+        if self.stack is None:
+            return self.internal_remove_component_item(component_item)
+        command = DeleteComponentCommand(self, component_item)
+        self.stack.push(command)
+
+    def internal_remove_component_item(self, component_item):
+        if not self.editing_enabled:
+            return
         self.area_delete_preview_items.discard(component_item)
         for connection_data in list(self.visual_connections):
             if connection_data["src_item"] == component_item or connection_data["dst_item"] == component_item:
-                self.remove_connection_data(connection_data, notify=False)
+                self.internal_remove_connection_data(connection_data, notify=False)
         self.building_model.remove_componentItem(component_item)
         self.scene.removeItem(component_item)
-        self.set_dirty(True)
 
 
     def delete_component_items(self, component_items):
@@ -445,6 +490,13 @@ class InteractiveCanvas(QGraphicsView):
 
 
     def remove_connection_data(self, connection_data, notify=True):
+        if self.stack is None:
+            return self.internal_remove_connection_data(connection_data, notify)
+        command = DeleteConnectionCommand(self, connection_data, notify)
+        self.stack.push(command)
+        return command.success
+
+    def internal_remove_connection_data(self, connection_data, notify=True):
         """
         Summary: Remove connection data.
         Args: connection_data
@@ -688,7 +740,6 @@ class InteractiveCanvas(QGraphicsView):
         self._update_connection_pair_lines(src_item, dst_item)
         src_name = src_item.label.toPlainText() if hasattr(src_item, "label") else getattr(src_item.node, "name", "Source")
         dst_name = dst_item.label.toPlainText() if hasattr(dst_item, "label") else getattr(dst_item.node, "name", "Destination")
-        self.set_dirty(True)
         return True, f"Connection created: {src_name} -> {dst_name} ({src_output}).", connection_data
 
 
