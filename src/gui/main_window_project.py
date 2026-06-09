@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QLineEdit, QMessageBox
 
 
 class MainWindowProjectMixin:
@@ -44,7 +44,7 @@ class MainWindowProjectMixin:
         self._invalidate_plots()
         self.refresh_component_list()
         self.statusBar().showMessage(f"Added {component_name} ({component_item.component_id})", 2500)
-        self.is_dirty = True
+        self.set_dirty(True)
 
     def arm_delete_component(self):
         """Summary: Arm delete component."""
@@ -203,7 +203,7 @@ class MainWindowProjectMixin:
             return
         if self.pending_component_action == "delete":
             component_name = component_item.label.toPlainText()
-            self.canvas.remove_component_item(component_item)
+            self.canvas.delete_component_items([component_item])
             self._invalidate_plots()
             self.refresh_component_list()
             self.statusBar().showMessage(f"Deleted {component_name}", 4000)
@@ -304,11 +304,35 @@ class MainWindowProjectMixin:
         self.set_component_action_mode(None)
         self.statusBar().showMessage(f"Deleted connection: {src_name} -> {dst_name}", 4000)
 
+    def _is_pristine_empty_new_project(self):
+        model = self.building_model
+        return (
+            self.file_path is None
+            and self._canvas_component_count() == 0
+            and not self.canvas.visual_connections
+            and not model.componentItems
+            and not model.nodes
+            and not model.connections
+            and model.name == "Model"
+            and int(model.n_zones) == 2
+            and float(model.t_start) == 5 * 60 * 60
+            and float(model.t_duration) == 86400
+            and float(model.dt) == 300
+            and float(model.tu_T_supply_setpoint) == 285.15
+            and float(model.rtu_supply_airflow_setpoint) == 1.0
+            and not model.use_control_policy_override
+            and model.input_data_path is None
+            and not model.input_data_summary
+        )
+
+    def _has_unsaved_changes(self):
+        return bool(self.is_dirty) and not self._is_pristine_empty_new_project()
+
     def set_dirty(self, is_true):
-        self.is_dirty = is_true
+        self.is_dirty = bool(is_true) and not self._is_pristine_empty_new_project()
 
     def _confirm_new_project(self):
-        return self.dialogue_manager.confirm_new_project(self.is_dirty)
+        return self.dialogue_manager.confirm_new_project(self._has_unsaved_changes())
 
     def _reset_project_state(self):
         """Summary: Reset project state."""
@@ -419,7 +443,7 @@ class MainWindowProjectMixin:
         Summary: Load layout.
         Returns: Return the computed value.
         """
-        if self.is_dirty:
+        if self._has_unsaved_changes():
             if not self.dialogue_manager.confirm_load_project():
                 return
 
@@ -549,7 +573,7 @@ class MainWindowProjectMixin:
         return True
 
     def closeEvent(self, event):
-        if self.is_dirty:
+        if self._has_unsaved_changes():
             if not self.dialogue_manager.confirm_exit():
                 event.ignore()
                 return

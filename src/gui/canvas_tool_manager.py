@@ -195,11 +195,10 @@ class CanvasToolManager:
                 self.canvas.clear_area_delete_preview()
                 event.accept()
                 return 0
-        for item in to_remove:
-            self.canvas.remove_component_item(item)
+        removed_count = self.canvas.delete_component_items(to_remove)
         self.canvas.clear_area_delete_preview()
         event.accept()
-        return len(to_remove)
+        return removed_count
 
 
     def handle_drag_enter_event(self, event):
@@ -208,15 +207,20 @@ class CanvasToolManager:
 
 
     def handle_drag_move_event(self, event):
+        name = event.mimeData().text()
+        scene_pos = self.canvas.drag_preview_position(event.position().toPoint())
+        if name and self.canvas.current_drag_item is None:
+            self.canvas.current_drag_item = self.canvas.create_drag_preview_item(name, scene_pos)
+        elif self.canvas.current_drag_item is not None:
+            self.canvas.current_drag_item.setPos(scene_pos)
         event.acceptProposedAction()
 
 
     def handle_drop_event(self, event):
         name = event.mimeData().text()
-        scene_pos = self.canvas.mapToScene(event.position().toPoint())
-        if name and self.canvas.current_drag_item is None:
+        scene_pos = self.canvas.drag_preview_position(event.position().toPoint())
+        if self.canvas.current_drag_item is not None:
+            self.canvas.clear_drag_preview_item()
+        if name:
             self.canvas.add_component(name, scene_pos)
-        elif self.canvas.current_drag_item:
-            self.canvas.current_drag_item.setPos(scene_pos)
-        self.canvas.current_drag_item = None
         event.acceptProposedAction()

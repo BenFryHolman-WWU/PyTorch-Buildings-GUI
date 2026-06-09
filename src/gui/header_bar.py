@@ -11,6 +11,7 @@ from .interactive_canvas import DragButton
 
 ICON_SIZE = QSize(22, 22)
 COMPONENT_ICON_SIZE = QSize(48, 32)
+BASE_TOOLBAR_WIDTH = 1500
 
 
 ACTION_ICONS = {
@@ -51,6 +52,7 @@ class HeaderBar(QWidget):
         self.area_delete_btn = None
         self._toolbar_layout = None
         self._title_label = None
+        self._last_scale_key = None
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMinimumHeight(42)
         self._build()
@@ -89,6 +91,7 @@ class HeaderBar(QWidget):
                 elif key == "redo":
                     self.redo_btn = button
                 layout.addWidget(button)
+
         self.add_connection_btn = self._create_action_button(
             "Add Connection", self.callbacks["add_connection"], checkable=True
         )
@@ -114,54 +117,62 @@ class HeaderBar(QWidget):
             layout.addWidget(button)
         layout.addStretch(1)
 
-        self.setStyleSheet("""
-            HeaderBar {
+        self._apply_toolbar_style(1.0)
+        self._sync_responsive_layout()
+
+    def _apply_toolbar_style(self, scale):
+        title_font = round(13 * scale)
+        button_font = round(11 * scale)
+        radius = round(5 * scale)
+        pad_v = round(4 * scale)
+        pad_h = round(7 * scale)
+        self.setStyleSheet(f"""
+            HeaderBar {{
                 background: #f7f8fb;
                 border-bottom: 1px solid #d8ddeb;
-            }
-            QLabel#appTitle {
+            }}
+            QLabel#appTitle {{
                 background: transparent;
                 color: #1f2a44;
-                font-size: 13px;
+                font-size: {title_font}px;
                 font-weight: 700;
                 padding: 0 4px;
-            }
-            QToolButton {
+            }}
+            QToolButton {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: {radius}px;
                 color: #000000;
-                font-size: 11px;
-                padding: 4px 7px;
-            }
-            QToolButton:hover {
+                font-size: {button_font}px;
+                padding: {pad_v}px {pad_h}px;
+            }}
+            QToolButton:hover {{
                 background: transparent;
                 border-color: #8fb0df;
-            }
-            QToolButton:pressed {
+            }}
+            QToolButton:pressed {{
                 background: transparent;
                 border-color: #4878C8;
-            }
-            QToolButton:checked {
+            }}
+            QToolButton:checked {{
                 background: transparent;
                 border-color: #4878C8;
                 color: #000000;
-            }
-            QToolButton:disabled {
+            }}
+            QToolButton:disabled {{
                 color: #9aa4bd;
-            }
-            QToolButton:checked:disabled {
+            }}
+            QToolButton:checked:disabled {{
                 background: transparent;
                 border-color: #4878C8;
                 color: #4a5578;
-            }
-            QFrame#toolbarSeparator {
+            }}
+            QFrame#toolbarSeparator {{
                 background: #d8ddeb;
-                min-width: 1px;
-                max-width: 1px;
-            }
+                min-width: 3px;
+                max-width: 3px;
+            }}
         """)
-        self._sync_responsive_layout()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -174,13 +185,18 @@ class HeaderBar(QWidget):
             return
         compact = width < 1180
         very_compact = width < 820
+        scale = 0.9 if compact else min(1.45, max(1.0, width / BASE_TOOLBAR_WIDTH))
+        scale_key = round(scale, 2)
+        if scale_key != self._last_scale_key:
+            self._apply_toolbar_style(scale)
+            self._last_scale_key = scale_key
         self._toolbar_layout.setContentsMargins(
-            6 if very_compact else 10,
-            4 if compact else 5,
-            6 if very_compact else 10,
-            4 if compact else 5,
+            6 if very_compact else round(10 * scale),
+            4 if compact else round(5 * scale),
+            6 if very_compact else round(10 * scale),
+            4 if compact else round(5 * scale),
         )
-        self._toolbar_layout.setSpacing(3 if compact else 6)
+        self._toolbar_layout.setSpacing(3 if compact else round(6 * scale))
         if self._title_label is not None:
             self._title_label.setVisible(not very_compact)
         button_style = (
@@ -188,12 +204,15 @@ class HeaderBar(QWidget):
             if compact
             else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
-        icon_size = QSize(20, 20) if compact else ICON_SIZE
+        icon_edge = 20 if compact else round(ICON_SIZE.width() * scale)
+        icon_size = QSize(icon_edge, icon_edge)
+        button_height = 30 if compact else round(32 * scale)
+        self.setMinimumHeight(round(42 * scale))
         for button in self.action_buttons:
             if isinstance(button, QToolButton):
                 button.setToolButtonStyle(button_style)
                 button.setIconSize(icon_size)
-                button.setMinimumHeight(30 if compact else 32)
+                button.setMinimumHeight(button_height)
                 button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
     def _separator(self):
@@ -210,7 +229,7 @@ class HeaderBar(QWidget):
         """
         button = QToolButton()
         button.setText(label)
-        button.setToolTip(label)
+        button.setToolTip("")
         names = icon_names or ACTION_ICONS.get(label, (label,))
         button.setIcon(self.icons.icon(*names, fallback_text=label))
         button.setIconSize(ICON_SIZE)
@@ -230,6 +249,7 @@ class HeaderBar(QWidget):
         Returns: Return the computed value.
         """
         button = DragButton(label, component_name)
+        button.setToolTip("")
         names = icon_names or self.component_icon_names.get(component_name, (component_name,))
         button.setIcon(self.icons.icon(*names, fallback_text=label))
         button.setIconSize(COMPONENT_ICON_SIZE)
@@ -237,9 +257,9 @@ class HeaderBar(QWidget):
         button.setAutoRaise(True)
         button.setMinimumSize(92, 66)
         button.setStyleSheet(
-            "QToolButton { border: none; background: transparent; padding: 2px 4px; color: #000000; }"
-            "QToolButton:hover { background-color: rgba(0, 0, 0, 0.05); border-radius: 6px; }"
-            "QToolButton:pressed { background-color: rgba(0, 0, 0, 0.09); border-radius: 6px; }"
+            "QToolButton { border: 1px solid transparent; background: transparent; padding: 2px 4px; color: #000000; }"
+            "QToolButton:hover { background: transparent; border-color: #8fb0df; border-radius: 6px; }"
+            "QToolButton:pressed { background: transparent; border-color: #6f95d0; border-radius: 6px; }"
         )
         self.action_buttons.append(button)
         return button

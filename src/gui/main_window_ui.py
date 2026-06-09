@@ -11,6 +11,43 @@ from .main_window_helpers import COMPONENTS, COMPONENT_ICON_NAMES, _button_style
 
 
 class MainWindowUiMixin:
+    def _window_ui_scale(self):
+        width = self.width() if hasattr(self, "width") else 1500
+        if width < 1180:
+            return 0.95
+        return min(1.45, max(1.0, width / 1500))
+
+    def _component_drag_button_style(self, scale):
+        font_size = round(10 * scale)
+        radius = round(5 * scale)
+        pad_v = round(5 * scale)
+        pad_h = round(4 * scale)
+        return (
+            "QToolButton { border: 1px solid #d8ddeb; background: #ffffff;"
+            f" padding: {pad_v}px {pad_h}px; color: #33405f; font-size: {font_size}px;"
+            f" border-radius: {radius}px; }}"
+            "QToolButton:hover { background: #ffffff; border-color: #8fb0df; color: #173b73; }"
+            "QToolButton:pressed { background: #ffffff; border-color: #6f95d0; }"
+        )
+
+    def _sync_responsive_ui_scale(self):
+        scale = self._window_ui_scale()
+        scale_key = round(scale, 2)
+        if getattr(self, "_last_sidebar_scale_key", None) == scale_key:
+            return
+        self._last_sidebar_scale_key = scale_key
+        if getattr(self, "_left_tabs", None) is not None:
+            self._left_tabs.setMinimumWidth(round(260 * scale))
+        if getattr(self, "_component_palette_header", None) is not None:
+            self._component_palette_header.setStyleSheet(
+                "QLabel { background: transparent; color: #7a88b0; border: none;"
+                f" font-size: {round(9 * scale)}px; font-weight: 700; letter-spacing: 1px; }}"
+            )
+        for button in getattr(self, "_component_palette_buttons", []):
+            button.setIconSize(QSize(round(24 * scale), round(24 * scale)))
+            button.setMinimumHeight(round(54 * scale))
+            button.setStyleSheet(self._component_drag_button_style(scale))
+
     def _set_undo_enabled(self, enabled):
         if self.undo_btn is not None:
             self.undo_btn.setEnabled(bool(enabled) and self.pending_component_action is None)
@@ -284,10 +321,7 @@ class MainWindowUiMixin:
         palette_layout.setSpacing(4)
 
         pal_hdr = QLabel("COMPONENTS")
-        pal_hdr.setStyleSheet(
-            "QLabel { background: transparent; color: #7a88b0; border: none;"
-            " font-size: 9px; font-weight: 700; letter-spacing: 1px; }"
-        )
+        self._component_palette_header = pal_hdr
         palette_layout.addWidget(pal_hdr)
 
         from PyQt6.QtWidgets import QGridLayout
@@ -296,26 +330,23 @@ class MainWindowUiMixin:
         grid.setContentsMargins(2, 2, 2, 2)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
-        _DRAG_BTN = (
-            "QToolButton { border: 1px solid #d8ddeb; background: #ffffff;"
-            " padding: 5px 4px; color: #33405f; font-size: 10px; border-radius: 5px; }"
-            "QToolButton:hover { background: #ffffff; border-color: #8fb0df; color: #173b73; }"
-            "QToolButton:pressed { background: #f7f8fb; border-color: #6f95d0; }"
-        )
+        scale = self._window_ui_scale()
+        drag_button_style = self._component_drag_button_style(scale)
         for i, cls in enumerate(COMPONENTS):
             btn = DragButton(cls.__name__, cls.__name__)
             btn.setIcon(self.icons.icon(
                 *COMPONENT_ICON_NAMES.get(cls.__name__, (cls.__name__,)),
                 fallback_text=cls.__name__,
             ))
-            btn.setIconSize(QSize(24, 24))
+            btn.setIconSize(QSize(round(24 * scale), round(24 * scale)))
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             btn.setAutoRaise(False)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setMinimumHeight(54)
-            btn.setStyleSheet(_DRAG_BTN)
+            btn.setMinimumHeight(round(54 * scale))
+            btn.setStyleSheet(drag_button_style)
             grid.addWidget(btn, i // 2, i % 2)
             self._component_palette_buttons.append(btn)
+        self._sync_responsive_ui_scale()
         palette_layout.addLayout(grid)
         layout.addWidget(palette_box)
 

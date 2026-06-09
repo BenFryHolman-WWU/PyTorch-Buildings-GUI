@@ -102,6 +102,9 @@ class ChartWidget(QWidget):
         super().__init__(parent)
         self.series: List[LineSeries] = []
         self.ylabel = ylabel
+        self.value_label, self.value_unit = self._split_axis_label(ylabel)
+        self.temperature_units_enabled = False
+        self._manual_y_range = False
         self.subplot_title = ""
         self.overall_title = ""
         self.title_font_size = 13
@@ -145,6 +148,61 @@ class ChartWidget(QWidget):
         return self._MB_X if self.show_x_axis else self._MB_NOX
 
 
+    @staticmethod
+    def _split_axis_label(ylabel: str):
+        text = (ylabel or "").strip()
+        if text.endswith("]") and "[" in text:
+            label, unit = text.rsplit("[", 1)
+            return label.strip(), unit[:-1].strip()
+        return text, ""
+
+
+    def set_value_axis(self, label: str, unit: str = "", temperature_units_enabled: bool = False):
+        self.value_label = label or self.value_label or self.ylabel
+        self.value_unit = unit or ""
+        self.temperature_units_enabled = bool(temperature_units_enabled)
+        self._sync_ylabel()
+
+
+    def _sync_ylabel(self):
+        self.ylabel = f"{self.value_label} [{self.value_unit}]" if self.value_unit else self.value_label
+
+
+    def set_temperature_unit(self, unit: str):
+        if not self.temperature_units_enabled or unit not in {"C", "K"} or unit == self.value_unit:
+            return
+        delta = 273.15 if self.value_unit == "C" and unit == "K" else -273.15
+        for series in self.series:
+            series.y = series.y + delta
+        self._y_min += delta
+        self._y_max += delta
+        self._vy_min += delta
+        self._vy_max += delta
+        self.value_unit = unit
+        self._sync_ylabel()
+        self._hover_sample = None
+        self.update()
+
+
+    def set_y_axis_range(self, y_min: float, y_max: float):
+        if not (math.isfinite(y_min) and math.isfinite(y_max)) or y_max <= y_min:
+            return False
+        self._manual_y_range = True
+        self._y_min = float(y_min)
+        self._y_max = float(y_max)
+        self._vy_min = self._y_min
+        self._vy_max = self._y_max
+        self._hover_sample = None
+        self.update()
+        return True
+
+
+    def auto_fit_y_axis(self):
+        self._manual_y_range = False
+        self.refit_y_to_visible_series()
+        self.update()
+
+
     def _plot_rect(self, w: int, h: int) -> QRectF:
         return QRectF(
             self._ML, self._mt(),
@@ -178,12 +236,16 @@ class ChartWidget(QWidget):
             self._y_min, self._y_max = _padded_range(ys)
         except Exception:
             return
+        self._manual_y_range = False
         self._vx_min, self._vx_max = self._x_min, self._x_max
         self._vy_min, self._vy_max = self._y_min, self._y_max
 
 
     def refit_y_to_visible_series(self):
         """Summary: Refit y to visible series."""
+        if self._manual_y_range:
+            self._vy_min, self._vy_max = self._y_min, self._y_max
+            return
         valid = [s for s in self.series if s.visible and len(s.y) > 0]
         if not valid:
             valid = [s for s in self.series if len(s.y) > 0]

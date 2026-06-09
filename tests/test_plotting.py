@@ -205,6 +205,41 @@ class PlottingTests(unittest.TestCase):
         self.assertLess(chart._y_min, 100.0)
         self.assertGreater(chart._y_max, 400.0)
 
+    def test_temperature_axis_can_switch_between_celsius_and_kelvin(self):
+        chart = ChartWidget(ylabel="Zone Temp [C]", show_x_axis=True)
+        chart.set_value_axis("Zone Temp", "C", temperature_units_enabled=True)
+        chart.set_series([
+            LineSeries(
+                x=np.array([0.0, 300.0]),
+                y=np.array([10.0, 20.0]),
+                label="Zone 1",
+            )
+        ])
+
+        chart.set_temperature_unit("K")
+
+        self.assertEqual(chart.value_unit, "K")
+        self.assertEqual(chart.ylabel, "Zone Temp [K]")
+        self.assertAlmostEqual(chart.series[0].y[0], 283.15)
+        self.assertAlmostEqual(chart._y_min, 9.5 + 273.15)
+
+    def test_manual_y_axis_range_survives_live_refresh(self):
+        widget = MultiChartWidget()
+        results = {
+            "t": torch.tensor([[[18000.0], [18300.0], [18600.0]]]),
+            "rtu.total_power": torch.tensor([[[100.0], [400.0], [200.0]]]),
+        }
+        widget.load_results(results, ["rtu.total_power"], 18000, VARIABLE_META, ZONE_COLORS)
+        chart = widget.charts[0]
+        chart.set_y_axis_range(0.0, 1000.0)
+
+        widget.refresh_series_from_results(results, 18000, VARIABLE_META, ZONE_COLORS)
+
+        self.assertEqual(chart._y_min, 0.0)
+        self.assertEqual(chart._y_max, 1000.0)
+        self.assertEqual(chart._vy_min, 0.0)
+        self.assertEqual(chart._vy_max, 1000.0)
+
     def test_live_refresh_preserves_hidden_series_and_scales_to_visible(self):
         widget = MultiChartWidget()
         results = {

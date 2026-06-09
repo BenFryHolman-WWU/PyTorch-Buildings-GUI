@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 from PyQt6.QtCore import Qt, QMimeData, QRectF, pyqtSignal
-from PyQt6.QtGui import QColor, QDrag, QPainter, QPen
+from PyQt6.QtGui import QColor, QDrag, QFont, QPainter, QPen
 from PyQt6.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem, QSizePolicy, QVBoxLayout, QWidget
 
 from .plot_widget import ChartWidget, LineSeries, _padded_range, _time_domain_with_margin
@@ -155,6 +155,7 @@ class MultiChartWidget(QWidget):
             scale = meta.get("scale", None)
             ylabel = f"{label} [{unit}]" if unit else label
             chart = ChartWidget(ylabel = ylabel, show_x_axis = is_last)
+            chart.set_value_axis(label, unit, temperature_units_enabled=(unit in {"C", "K"} and scale is not None))
             chart.var_key = var
             chart.show_grid = self._grid_visible
             chart.remove_callback = (lambda k=var: self.variable_removed.emit(k))
@@ -228,6 +229,8 @@ class MultiChartWidget(QWidget):
                 y = tensor[0, :n_data, zi].detach().cpu().numpy().copy()
                 if scale_fn is not None:
                     y = scale_fn(y)
+                if chart.temperature_units_enabled and chart.value_unit == "K":
+                    y = y + 273.15
                 chart.series[zi].x = t_local
                 chart.series[zi].y = y
 
@@ -236,10 +239,14 @@ class MultiChartWidget(QWidget):
             all_y = np.concatenate([s.y for s in y_series])
             y_min, y_max = _padded_range(all_y)
             self._apply_full_x_range(chart, full_time)
-            chart._y_min = y_min
-            chart._y_max = y_max
-            chart._vy_min = chart._y_min
-            chart._vy_max = chart._y_max
+            if chart._manual_y_range:
+                chart._vy_min = chart._y_min
+                chart._vy_max = chart._y_max
+            else:
+                chart._y_min = y_min
+                chart._y_max = y_max
+                chart._vy_min = chart._y_min
+                chart._vy_max = chart._y_max
             chart.update()
 
 

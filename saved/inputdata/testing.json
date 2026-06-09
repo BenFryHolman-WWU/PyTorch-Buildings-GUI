@@ -1,0 +1,21 @@
+{
+  "name": "Model",
+  "n_zones": 2,
+  "components": [],
+  "component_sections": {},
+  "connections": [],
+  "time": {
+    "t_start": 18000.0,
+    "t_duration": 86400.0,
+    "dt": 300.0
+  },
+  "control_policy": {
+    "tu_T_supply_setpoint": 285.15,
+    "rtu_supply_airflow_setpoint": 1.0,
+    "use_control_policy_override": false
+  },
+  "input_data": {
+    "path": null,
+    "summary": {}
+  }
+}

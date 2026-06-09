@@ -3,8 +3,12 @@
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QColorDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget, QWidgetAction
+from PyQt6.QtGui import QColor, QDoubleValidator, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtWidgets import (
+    QColorDialog, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QHBoxLayout,
+    QLabel, QLineEdit, QListWidgetItem, QMessageBox, QProgressBar, QPushButton,
+    QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout, QWidget, QWidgetAction,
+)
 
 from .main_window_helpers import OPACITY_STEPS, LineStyleButton, LineStylePreviewButton, _button_style, _line_toggle_style, _plot_settings_title
 
@@ -249,7 +253,6 @@ class MainWindowPlotMixin:
         Summary: Rebuild plot settings.
         Returns: Return the computed value.
         """
-        from gui.plot_widget import STYLE_OPTIONS
         mc = self._current_multi_chart()
         if mc is None or self._settings_layout is None:
             return
@@ -288,8 +291,16 @@ class MainWindowPlotMixin:
             fit_btn.setStyleSheet(_FIT_BTN)
             fit_btn.setToolTip("Reset zoom to full data range")
             fit_btn.clicked.connect(lambda _=False, c=chart: c.reset_view())
+            edit_btn = QPushButton()
+            edit_btn.setIcon(self.canvas.icons.icon("settings", "settings_asset", fallback_text="Settings"))
+            edit_btn.setIconSize(QSize(14, 14))
+            edit_btn.setFixedSize(22, 18)
+            edit_btn.setStyleSheet(_FIT_BTN)
+            edit_btn.setToolTip("Edit subplot")
+            edit_btn.clicked.connect(lambda _=False, c=chart: self._open_subplot_edit_dialog(c))
             hdr_row.addWidget(hdr_lbl, 1)
             hdr_row.addWidget(fit_btn)
+            hdr_row.addWidget(edit_btn)
             self._settings_layout.addWidget(hdr_w)
             for series in chart.series:
                 row_w = QWidget()
@@ -303,9 +314,6 @@ class MainWindowPlotMixin:
                 top_row = QHBoxLayout()
                 top_row.setContentsMargins(0, 0, 0, 0)
                 top_row.setSpacing(4)
-                control_row = QHBoxLayout()
-                control_row.setContentsMargins(0, 0, 0, 0)
-                control_row.setSpacing(0)
                 swatch_wrap = QWidget()
                 swatch_wrap.setFixedSize(20, 20)
                 swatch_wrap.setStyleSheet("background: transparent;")
@@ -323,38 +331,6 @@ class MainWindowPlotMixin:
                 lbl = QLabel(_plot_settings_title(series.label, "Line"))
                 lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 lbl.setStyleSheet("font-size: 10px; color: #2c3454; background: transparent;")
-                line_group = QWidget()
-                line_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                line_group.setStyleSheet("background: transparent;")
-                line_group_layout = QHBoxLayout(line_group)
-                line_group_layout.setContentsMargins(0, 0, 0, 0)
-                line_group_layout.setSpacing(0)
-                s_btn = LineStyleButton(self._make_style_icon, series.style, series.width)
-                s_btn.setStyleSheet(_button_style(font_size=10, padding="1px 4px"))
-                width_stack = QWidget()
-                width_stack.setFixedSize(26, 34)
-                width_stack.setStyleSheet("background: transparent;")
-                width_stack_layout = QVBoxLayout(width_stack)
-                width_stack_layout.setContentsMargins(2, 1, 2, 1)
-                width_stack_layout.setSpacing(3)
-                width_plus = QPushButton("+")
-                width_minus = QPushButton("-")
-                width_button_style = _button_style(
-                    hover_bg="#e6e9f5",
-                    pressed_bg="#d0d4ea",
-                    radius=3,
-                    font_size=10,
-                    font_weight=700,
-                    padding="1px 0",
-                )
-                for btn in (width_plus, width_minus):
-                    btn.setFixedSize(22, 14)
-                    btn.setStyleSheet(width_button_style)
-                    btn.setToolTip(f"Line thickness: {series.width}")
-                width_stack_layout.addWidget(width_plus)
-                width_stack_layout.addWidget(width_minus)
-                line_group_layout.addWidget(s_btn, 1)
-                line_group_layout.addWidget(width_stack)
 
                 def _color_h(ser, btn, c):
                     """
@@ -373,15 +349,6 @@ class MainWindowPlotMixin:
                             c.update()
                     return _f
 
-                def _width_h(ser, delta, plus_btn, minus_btn, style_btn, c):
-                    def _f():
-                        ser.width = max(1, min(8, ser.width + delta))
-                        plus_btn.setToolTip(f"Line thickness: {ser.width}")
-                        minus_btn.setToolTip(f"Line thickness: {ser.width}")
-                        style_btn.set_line_appearance(ser.style, ser.width)
-                        c.update()
-                    return _f
-
                 def _opacity_h(ser, btn, c):
                     def _f():
                         current = min(range(len(OPACITY_STEPS)), key=lambda idx: abs(OPACITY_STEPS[idx] - ser.opacity))
@@ -392,59 +359,304 @@ class MainWindowPlotMixin:
                         c.update()
                     return _f
 
-                def _style_menu_h(ser, btn, c):
-                    """
-                    Summary: Style menu h.
-                    Args: ser, btn, c
-                    Returns: Return the computed value.
-                    """
-                    def _f():
-                        """Summary: F."""
-                        from PyQt6.QtWidgets import QMenu
-                        menu = QMenu(btn)
-                        menu.setStyleSheet(
-                            "QMenu { background: #fafbfd; border: 1px solid #c4c9dc;"
-                            " border-radius: 4px; padding: 0; margin: 0; }"
-                            "QMenu::item { padding: 0; margin: 0; }"
-                        )
-                        menu.setFixedWidth(206)
-                        for opt in STYLE_OPTIONS:
-                            preview = LineStylePreviewButton(opt, self._make_style_icon(opt, 204, 18, ser.width), menu)
-                            if opt == ser.style:
-                                preview.setStyleSheet(
-                                    "QPushButton { background: #dce7fb; border: 1px solid #7fa3d8;"
-                                    " border-radius: 0; padding: 2px 0; }"
-                                    "QPushButton:hover { background: #d0def5; }"
-                                )
-
-                            def _choose(chosen_style=opt):
-                                ser.style = chosen_style
-                                btn.set_line_appearance(chosen_style, ser.width)
-                                c.update()
-                                menu.close()
-
-                            preview.selected.connect(_choose)
-                            action = QWidgetAction(menu)
-                            action.setDefaultWidget(preview)
-                            menu.addAction(action)
-                        menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
-                        if ser.style:
-                            c.update()
-                    return _f
-
                 swatch.clicked.connect(_color_h(series, swatch, chart))
-                width_plus.clicked.connect(_width_h(series, 1, width_plus, width_minus, s_btn, chart))
-                width_minus.clicked.connect(_width_h(series, -1, width_plus, width_minus, s_btn, chart))
                 opacity_btn.clicked.connect(_opacity_h(series, opacity_btn, chart))
-                s_btn.clicked.connect(_style_menu_h(series, s_btn, chart))
                 top_row.addWidget(swatch_wrap)
                 top_row.addWidget(lbl, 1)
-                control_row.addWidget(line_group, 1)
                 row.addLayout(top_row)
-                row.addLayout(control_row)
                 self._settings_layout.addWidget(row_w)
 
         self._settings_layout.addStretch()
+
+
+    def _open_subplot_edit_dialog(self, chart):
+        from gui.plot_widget import STYLE_OPTIONS, _padded_range
+
+        _DIALOG_STYLE = """
+            QDialog { background: #f5f7fc; color: #27314f; }
+            QLabel { color: #2c3454; background: transparent; font-size: 11px; }
+            QLabel#axisRowLabel { color: #1f2a44; font-size: 13px; font-weight: 600; }
+            QLabel#dialogTitle { color: #1f2a44; font-size: 13px; font-weight: 700; }
+            QLabel#sectionLabel {
+                color: #3a4468; background: #e4e8f3; border-radius: 4px;
+                padding: 3px 7px; font-size: 10px; font-weight: 700;
+            }
+            QWidget#lineCard {
+                background: #ffffff; border: 1px solid #d7ddec; border-radius: 6px;
+            }
+            QLineEdit, QSpinBox {
+                background: #ffffff; color: #26324f; border: 1px solid #c7cede;
+                border-radius: 4px; padding: 3px 6px; min-height: 22px;
+                selection-background-color: #dce7fb;
+            }
+            QLineEdit:hover, QSpinBox:hover { border-color: #9faccc; }
+            QLineEdit:focus, QSpinBox:focus { border-color: #4878C8; }
+            QPushButton {
+                background: #ffffff; color: #3a4468; border: 1px solid #c4c9dc;
+                border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+            }
+            QPushButton:hover { background: #eaf0fb; border-color: #9fb4d8; }
+            QPushButton:pressed { background: #dce7fb; }
+            QPushButton#primaryButton {
+                background: #4a7fc1; color: #ffffff; border-color: #4a7fc1;
+            }
+            QPushButton#primaryButton:hover { background: #5a8fd1; border-color: #5a8fd1; }
+            QPushButton#unitButton {
+                border-radius: 12px; min-width: 24px; max-width: 24px;
+                min-height: 24px; max-height: 24px; padding: 0; font-weight: 700;
+            }
+            QPushButton#unitButton:checked {
+                background: #4a7fc1; color: #ffffff; border-color: #4a7fc1;
+            }
+            QPushButton#unitButton:!checked {
+                background: #edf0f7; color: #9aa3b8; border-color: #d8deec;
+            }
+        """
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Edit Subplot")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(230)
+        dialog.setStyleSheet(_DIALOG_STYLE)
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(7)
+
+        axis_label = QLabel("AXIS")
+        axis_label.setObjectName("sectionLabel")
+        layout.addWidget(axis_label)
+
+        axis_rows = QGridLayout()
+        axis_rows.setContentsMargins(0, 0, 0, 0)
+        axis_rows.setHorizontalSpacing(3)
+        axis_rows.setVerticalSpacing(6)
+        axis_rows.setColumnMinimumWidth(0, 112)
+        axis_row_idx = {"value": 0}
+
+        def _axis_row(label_text, widget):
+            label = QLabel(label_text)
+            label.setObjectName("axisRowLabel")
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            axis_rows.addWidget(label, axis_row_idx["value"], 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            axis_rows.addWidget(widget, axis_row_idx["value"], 1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            axis_row_idx["value"] += 1
+
+        unit_buttons = {}
+        unit_state = {"value": chart.value_unit}
+        if chart.temperature_units_enabled:
+            unit_row = QHBoxLayout()
+            unit_row.setContentsMargins(0, 0, 0, 0)
+            unit_row.setSpacing(6)
+            for unit in ("C", "K"):
+                btn = QPushButton(unit)
+                btn.setObjectName("unitButton")
+                btn.setCheckable(True)
+                btn.setChecked(unit == unit_state["value"])
+                unit_row.addWidget(btn)
+                unit_buttons[unit] = btn
+            unit_holder = QWidget()
+            unit_holder.setLayout(unit_row)
+            unit_holder.setFixedWidth(62)
+            _axis_row("Temperature", unit_holder)
+
+        validator = QDoubleValidator(-1e9, 1e9, 6, dialog)
+        validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        y_max = QLineEdit(f"{chart._vy_max:.6g}")
+        y_min = QLineEdit(f"{chart._vy_min:.6g}")
+        for field in (y_max, y_min):
+            field.setValidator(validator)
+            field.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            field.setFixedWidth(96)
+        _axis_row("Max", y_max)
+        _axis_row("Min", y_min)
+
+        auto_fit_requested = {"value": False}
+        setting_spins = {"value": False}
+
+        def _visible_y_range():
+            valid = [s for s in chart.series if s.visible and len(s.y) > 0]
+            if not valid:
+                valid = [s for s in chart.series if len(s.y) > 0]
+            if not valid:
+                return chart._y_min, chart._y_max
+            try:
+                import numpy as np
+                lo, hi = _padded_range(np.concatenate([s.y for s in valid]))
+                if chart.temperature_units_enabled and unit_state["value"] != chart.value_unit:
+                    delta = 273.15 if chart.value_unit == "C" and unit_state["value"] == "K" else -273.15
+                    lo += delta
+                    hi += delta
+                return lo, hi
+            except Exception:
+                return chart._y_min, chart._y_max
+
+        def _mark_manual():
+            if not setting_spins["value"]:
+                auto_fit_requested["value"] = False
+
+        y_min.textEdited.connect(_mark_manual)
+        y_max.textEdited.connect(_mark_manual)
+
+        if unit_buttons:
+            def _unit_changed(next_unit):
+                previous = unit_state["value"]
+                if previous == next_unit:
+                    return
+                delta = 273.15 if previous == "C" and next_unit == "K" else -273.15
+                setting_spins["value"] = True
+                try:
+                    y_min.setText(f"{float(y_min.text()) + delta:.6g}")
+                    y_max.setText(f"{float(y_max.text()) + delta:.6g}")
+                except ValueError:
+                    pass
+                setting_spins["value"] = False
+                unit_state["value"] = next_unit
+                for unit, btn in unit_buttons.items():
+                    btn.setChecked(unit == next_unit)
+
+            for unit, btn in unit_buttons.items():
+                btn.clicked.connect(lambda _=False, u=unit: _unit_changed(u))
+
+        layout.addLayout(axis_rows)
+
+        lines_label = QLabel("LINES")
+        lines_label.setObjectName("sectionLabel")
+        layout.addWidget(lines_label)
+
+        series_rows = []
+        show_series_labels = len(chart.series) > 1
+        for idx, series in enumerate(chart.series):
+            if show_series_labels:
+                series_label = QLabel(series.label or f"Zone {idx + 1}")
+                series_label.setObjectName("axisRowLabel")
+                series_label.setToolTip(series.label)
+                series_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                layout.addWidget(series_label)
+            line_card = QWidget()
+            line_card.setObjectName("lineCard")
+            line_card_layout = QHBoxLayout(line_card)
+            line_card_layout.setContentsMargins(6, 5, 6, 5)
+            line_card_layout.setSpacing(6)
+            style_btn = LineStyleButton(self._make_style_icon, series.style, series.width)
+            style_btn.setMinimumWidth(118)
+            style_btn.setStyleSheet(_button_style(font_size=10, padding="1px 4px"))
+            width_state = {"value": series.width}
+            width_stack = QWidget()
+            width_stack.setFixedSize(24, 34)
+            width_stack.setStyleSheet("background: transparent;")
+            width_stack_layout = QVBoxLayout(width_stack)
+            width_stack_layout.setContentsMargins(1, 1, 1, 1)
+            width_stack_layout.setSpacing(2)
+            width_up = QPushButton("▲")
+            width_down = QPushButton("▼")
+            arrow_style = _button_style(
+                hover_bg="#e6e9f5",
+                pressed_bg="#d0d4ea",
+                radius=3,
+                font_size=8,
+                font_weight=700,
+                padding="0",
+            )
+            for arrow in (width_up, width_down):
+                arrow.setFixedSize(22, 15)
+                arrow.setStyleSheet(arrow_style)
+                arrow.setToolTip(f"Line thickness: {width_state['value']}")
+            width_stack_layout.addWidget(width_up)
+            width_stack_layout.addWidget(width_down)
+
+            def _style_menu_h(btn, width_ref):
+                def _f():
+                    from PyQt6.QtWidgets import QMenu
+                    menu = QMenu(btn)
+                    menu.setStyleSheet(
+                        "QMenu { background: #fafbfd; border: 1px solid #c4c9dc;"
+                        " border-radius: 5px; padding: 2px; margin: 0; }"
+                        "QMenu::item { padding: 0; margin: 0; }"
+                    )
+                    menu.setFixedWidth(206)
+                    current_style = btn.line_style
+                    for opt in STYLE_OPTIONS:
+                        preview = LineStylePreviewButton(opt, self._make_style_icon(opt, 204, 18, width_ref["value"]), menu)
+                        if opt == current_style:
+                            preview.setStyleSheet(
+                                "QPushButton { background: #dce7fb; border: 1px solid #7fa3d8;"
+                                " border-radius: 3px; padding: 2px 0; }"
+                                "QPushButton:hover { background: #d0def5; }"
+                            )
+
+                        def _choose(chosen_style=opt):
+                            btn.set_line_appearance(chosen_style, width_ref["value"])
+                            menu.close()
+
+                        preview.selected.connect(_choose)
+                        action = QWidgetAction(menu)
+                        action.setDefaultWidget(preview)
+                        menu.addAction(action)
+                    menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+                return _f
+
+            def _width_step(style_ctl, width_ref, delta, buttons):
+                def _f():
+                    width_ref["value"] = max(1, min(8, width_ref["value"] + delta))
+                    style_ctl.set_line_appearance(style_ctl.line_style, width_ref["value"])
+                    for button in buttons:
+                        button.setToolTip(f"Line thickness: {width_ref['value']}")
+                return _f
+
+            style_btn.clicked.connect(_style_menu_h(style_btn, width_state))
+            width_up.clicked.connect(_width_step(style_btn, width_state, 1, (width_up, width_down)))
+            width_down.clicked.connect(_width_step(style_btn, width_state, -1, (width_up, width_down)))
+            line_card_layout.addWidget(style_btn)
+            line_card_layout.addWidget(width_stack)
+            line_card.setFixedWidth(211)
+            layout.addWidget(line_card)
+            series_rows.append((series, style_btn, width_state))
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        if ok_button is not None:
+            ok_button.setObjectName("primaryButton")
+        auto_fit_btn = QPushButton("Auto Fit")
+        button_box.addButton(auto_fit_btn, QDialogButtonBox.ButtonRole.ActionRole)
+
+        def _auto_fit():
+            lo, hi = _visible_y_range()
+            setting_spins["value"] = True
+            y_min.setText(f"{lo:.6g}")
+            y_max.setText(f"{hi:.6g}")
+            setting_spins["value"] = False
+            auto_fit_requested["value"] = True
+
+        def _accept():
+            try:
+                min_value = float(y_min.text())
+                max_value = float(y_max.text())
+            except ValueError:
+                QMessageBox.warning(dialog, "Invalid Range", "Enter numeric values for Min and Max.")
+                return
+            if max_value <= min_value:
+                QMessageBox.warning(dialog, "Invalid Range", "Y max must be greater than Y min.")
+                return
+            if unit_buttons:
+                chart.set_temperature_unit(unit_state["value"])
+            for series, style_btn, width_state in series_rows:
+                series.style = style_btn.line_style
+                series.width = width_state["value"]
+            if auto_fit_requested["value"]:
+                chart.auto_fit_y_axis()
+            else:
+                chart.set_y_axis_range(min_value, max_value)
+            chart.update()
+            dialog.accept()
+
+        auto_fit_btn.clicked.connect(_auto_fit)
+        button_box.accepted.connect(_accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._rebuild_plot_settings()
 
     def _populate_var_list(self, results: dict):
         """

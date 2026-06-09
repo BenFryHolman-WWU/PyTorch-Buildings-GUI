@@ -177,14 +177,14 @@ class SimulationRunnerTests(unittest.TestCase):
             self.assertEqual(data[key].shape[0], 1)
             self.assertEqual(data[key].shape[1], 3)
 
-    def test_connection_maps_include_simulation_time_step(self):
+    def test_connection_maps_match_neuromancer_example_without_implicit_time_step(self):
         model = self._model_with_components(("Envelope",))
 
         SimulationRunner()._apply_connection_input_maps(model)
 
         node = model.nodes[0]
-        self.assertEqual(node.input_map["dt"], "dt")
-        self.assertIn("dt", node.input_keys)
+        self.assertNotIn("dt", node.input_map)
+        self.assertNotIn("dt", node.input_keys)
 
     def test_model_control_policy_overrides_rtu_external_inputs(self):
         model = self._model_with_components(("RTU",))

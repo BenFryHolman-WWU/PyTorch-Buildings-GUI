@@ -133,6 +133,30 @@ class MainWindowToolModeTests(unittest.TestCase):
         window.is_dirty = False
         window.close()
 
+    def test_delete_component_tool_undo_redo_restores_clicked_component(self):
+        window = MainWindow()
+        item = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+
+        window.arm_delete_component()
+        window.handle_component_click_action(item)
+
+        self.assertNotIn(item, window.building_model.componentItems)
+        self.assertEqual(window.component_list.topLevelItemCount(), 0)
+
+        window.stack.undo()
+
+        self.assertIn(item, window.building_model.componentItems)
+        self.assertIs(item.scene(), window.canvas.scene)
+        self.assertEqual(window.component_list.topLevelItemCount(), 1)
+
+        window.stack.redo()
+
+        self.assertNotIn(item, window.building_model.componentItems)
+        self.assertIsNone(item.scene())
+        self.assertEqual(window.component_list.topLevelItemCount(), 0)
+        window.is_dirty = False
+        window.close()
+
     def test_area_delete_labels_include_component_names_and_ids(self):
         window = MainWindow()
         rtu = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu-1")
@@ -163,6 +187,80 @@ class MainWindowToolModeTests(unittest.TestCase):
         self.assertFalse(solar._delete_preview)
         self.assertFalse(envelope._delete_preview)
         self.assertEqual(window.canvas.area_delete_preview_connections, [])
+        window.is_dirty = False
+        window.close()
+
+    def test_area_delete_preview_uses_actual_component_rect(self):
+        window = MainWindow()
+        rtu = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+
+        highlighted = window.canvas.set_area_delete_preview(QRectF(-20, -20, 10, 10))
+
+        self.assertEqual(highlighted, [])
+        self.assertFalse(rtu._delete_preview)
+        window.is_dirty = False
+        window.close()
+
+    def test_area_delete_undo_redo_restores_all_components_and_connections(self):
+        window = MainWindow()
+        solar = window.canvas.add_component("SolarGains", QPointF(0, 0), component_id="solar")
+        envelope = window.canvas.add_component("Envelope", QPointF(150, 0), component_id="envelope")
+        ok, _message = window.canvas.add_connection_between_items(solar, envelope)
+        self.assertTrue(ok)
+        window.canvas.set_area_delete_preview(QRectF(-10, -10, 320, 120))
+
+        removed_count = window.canvas.delete_component_items([solar, envelope])
+
+        self.assertEqual(removed_count, 2)
+        self.assertNotIn(solar, window.building_model.componentItems)
+        self.assertNotIn(envelope, window.building_model.componentItems)
+        self.assertEqual(len(window.canvas.visual_connections), 0)
+
+        window.stack.undo()
+
+        self.assertIn(solar, window.building_model.componentItems)
+        self.assertIn(envelope, window.building_model.componentItems)
+        self.assertEqual(len(window.canvas.visual_connections), 1)
+        self.assertEqual(len(window.building_model.connections), 1)
+        self.assertEqual(window.canvas.visual_connections[0]["line_item"].pen().color().name(), "#5c6f96")
+
+        window.stack.redo()
+
+        self.assertNotIn(solar, window.building_model.componentItems)
+        self.assertNotIn(envelope, window.building_model.componentItems)
+        self.assertEqual(len(window.canvas.visual_connections), 0)
+        self.assertEqual(len(window.building_model.connections), 0)
+        window.is_dirty = False
+        window.close()
+
+    def test_delete_connection_enables_undo_and_restores_connection(self):
+        window = MainWindow()
+        solar = window.canvas.add_component("SolarGains", QPointF(0, 0), component_id="solar")
+        envelope = window.canvas.add_component("Envelope", QPointF(150, 0), component_id="envelope")
+        ok, _message = window.canvas.add_connection_between_items(solar, envelope)
+        self.assertTrue(ok)
+        connection_data = window.canvas.visual_connections[0]
+        window.stack.clear()
+        window._set_undo_enabled(window.stack.canUndo())
+
+        removed = window.canvas.delete_connection_data(connection_data)
+
+        self.assertTrue(removed)
+        self.assertTrue(window.stack.canUndo())
+        self.assertTrue(window.undo_btn.isEnabled())
+        self.assertEqual(len(window.canvas.visual_connections), 0)
+        self.assertEqual(len(window.building_model.connections), 0)
+
+        window.stack.undo()
+
+        self.assertEqual(len(window.canvas.visual_connections), 1)
+        self.assertEqual(len(window.building_model.connections), 1)
+        self.assertIs(window.canvas.visual_connections[0], connection_data)
+
+        window.stack.redo()
+
+        self.assertEqual(len(window.canvas.visual_connections), 0)
+        self.assertEqual(len(window.building_model.connections), 0)
         window.is_dirty = False
         window.close()
 
@@ -206,6 +304,32 @@ class MainWindowToolModeTests(unittest.TestCase):
         self.assertFalse(window.undo_btn.isEnabled())
         self.assertFalse(window.redo_btn.isEnabled())
         window.is_dirty = False
+        window.close()
+
+    def test_empty_new_project_after_undo_loads_without_unsaved_confirmation(self):
+        window = MainWindow()
+        window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+        window.stack.undo()
+
+        with patch.object(window.dialogue_manager, "confirm_load_project") as confirm_load:
+            with patch.object(window.dialogue_manager, "prompt_load_layout_path", return_value=None):
+                window.load_layout()
+
+        confirm_load.assert_not_called()
+        self.assertFalse(window.is_dirty)
+        window.close()
+
+    def test_empty_new_project_after_delete_loads_without_unsaved_confirmation(self):
+        window = MainWindow()
+        item = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+        window.canvas.remove_component_item(item)
+
+        with patch.object(window.dialogue_manager, "confirm_load_project") as confirm_load:
+            with patch.object(window.dialogue_manager, "prompt_load_layout_path", return_value=None):
+                window.load_layout()
+
+        confirm_load.assert_not_called()
+        self.assertFalse(window.is_dirty)
         window.close()
 
     def test_undo_redo_actions_include_ctrl_and_command_style_shortcuts(self):

@@ -9,7 +9,7 @@ from .canvas_tool_manager import CanvasToolManager
 from .icons import IconProvider
 from .state_manager import Connection
 
-from .undo_commands import AddComponentCommand, AddConnectionCommand
+from .undo_commands import AddComponentCommand, AddConnectionCommand, DeleteComponentsCommand, DeleteConnectionCommand
 
 
 HVAC_CONNECTIONS = {
@@ -162,7 +162,7 @@ class InteractiveCanvas(QGraphicsView):
             connection_data = self._connection_at_view_pos(event.position().toPoint())
             if connection_data is not None:
                 self.highlight_connection(connection_data)
-                self.remove_connection_data(connection_data)
+                self.delete_connection_data(connection_data)
                 event.accept()
                 return
             if callable(self.canvas_click_handler):
@@ -251,6 +251,11 @@ class InteractiveCanvas(QGraphicsView):
         self.tool_manager.handle_drag_move_event(event)
 
 
+    def dragLeaveEvent(self, event):
+        self.clear_drag_preview_item()
+        super().dragLeaveEvent(event)
+
+
     def dropEvent(self, event):
         if not self.editing_enabled:
             event.ignore()
@@ -290,7 +295,26 @@ class InteractiveCanvas(QGraphicsView):
         return item
 
 
+    def create_drag_preview_item(self, name, scene_pos):
+        item = ComponentItem(name, scene_pos, self.building_model, self, preview_only=True)
+        self.scene.addItem(item)
+        return item
+
+
+    def drag_preview_position(self, view_pos):
+        scene_pos = self.mapToScene(view_pos)
+        return QPointF(scene_pos.x() - 66.0, scene_pos.y() - 37.0)
+
+
+    def clear_drag_preview_item(self):
+        if self.current_drag_item is not None:
+            if self.current_drag_item.scene() is self.scene:
+                self.scene.removeItem(self.current_drag_item)
+            self.current_drag_item = None
+
+
     def clear_all(self):
+        self.clear_drag_preview_item()
         for connection_data in list(self.visual_connections):
             self.scene.removeItem(connection_data["line_item"])
             self.scene.removeItem(connection_data["arrow_item"])
@@ -311,6 +335,26 @@ class InteractiveCanvas(QGraphicsView):
         self.building_model.remove_componentItem(component_item)
         self.scene.removeItem(component_item)
         self.set_dirty(True)
+
+
+    def delete_component_items(self, component_items):
+        if not self.editing_enabled:
+            return 0
+        items = []
+        seen = set()
+        for item in component_items:
+            if not isinstance(item, ComponentItem) or item.scene() is not self.scene or item in seen:
+                continue
+            items.append(item)
+            seen.add(item)
+        if not items:
+            return 0
+        if self.stack is None:
+            for item in items:
+                self.remove_component_item(item)
+            return len(items)
+        self.stack.push(DeleteComponentsCommand(self, items))
+        return len(items)
 
 
     def _set_connection_highlight(self, connection_data, highlighted):
@@ -342,7 +386,11 @@ class InteractiveCanvas(QGraphicsView):
     def _component_items_in_scene_rect(self, scene_rect):
         return [
             item for item in self.scene.items()
-            if isinstance(item, ComponentItem) and scene_rect.intersects(item.sceneBoundingRect())
+            if (
+                isinstance(item, ComponentItem)
+                and not getattr(item, "preview_only", False)
+                and scene_rect.intersects(item.mapRectToScene(item.rect()))
+            )
         ]
 
 
@@ -402,7 +450,6 @@ class InteractiveCanvas(QGraphicsView):
         Args: connection_data
         Returns: Return the computed value.
         """
-        print("remove_connection_data called")
         if notify and not self.editing_enabled:
             return False
         if connection_data not in self.visual_connections:
@@ -422,6 +469,21 @@ class InteractiveCanvas(QGraphicsView):
         if notify and callable(self.connection_deleted_handler):
             self.connection_deleted_handler(connection_data)
         return True
+
+
+    def delete_connection_data(self, connection_data, notify=True):
+        if not self.editing_enabled:
+            return False
+        if connection_data not in self.visual_connections:
+            return False
+        if self.stack is None:
+            removed = self.remove_connection_data(connection_data, notify=notify)
+        else:
+            self.stack.push(DeleteConnectionCommand(self, connection_data))
+            removed = True
+            if notify and callable(self.connection_deleted_handler):
+                self.connection_deleted_handler(connection_data)
+        return removed
 
 
     def _distance_to_segment(self, point, line):
@@ -648,9 +710,14 @@ class InteractiveCanvas(QGraphicsView):
         selected = [item for item in self.scene.selectedItems() if isinstance(item, ComponentItem)]
         if not selected:
             return
-        for item in selected:
-            name = item.label.toPlainText() if hasattr(item, "label") else ""
-            self.remove_component_item(item)
+        names = [
+            item.label.toPlainText() if hasattr(item, "label") else ""
+            for item in selected
+        ]
+        removed_count = self.delete_component_items(selected)
+        if removed_count == 0:
+            return
+        for name in names:
             if callable(on_removed):
                 on_removed(name)
         if callable(on_done):

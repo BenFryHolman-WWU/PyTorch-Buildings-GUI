@@ -47,6 +47,10 @@ class DragButton(QToolButton):
         mime = QMimeData()
         mime.setText(self.component_name)
         drag.setMimeData(mime)
+        pixmap = QPixmap(1, 1)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(QPoint(0, 0))
         drag.exec(Qt.DropAction.MoveAction)
         self.setDown(False)
 
@@ -56,7 +60,7 @@ class ComponentItem(QGraphicsRectItem):
     MUTABLE_PROPERTIES = COMPONENT_MUTABLE_PROPERTIES
 
 
-    def __init__(self, name, pos, building_model, canvas, component_id = None):
+    def __init__(self, name, pos, building_model, canvas, component_id = None, preview_only=False):
         """
         Summary: Init.
         Args: building_model, canvas, component_id
@@ -65,6 +69,7 @@ class ComponentItem(QGraphicsRectItem):
         self.building_model = building_model
         self.canvas = canvas
         self.component_id = component_id
+        self.preview_only = preview_only
         self.icon_provider = getattr(canvas, "icons", None)
         self.normal_pen = QPen(QColor("#9db8e4"), 1.5)
         self.hover_pen = QPen(QColor("#6f95d0"), 1.8)
@@ -88,7 +93,16 @@ class ComponentItem(QGraphicsRectItem):
         self.label = QGraphicsTextItem(name, self)
         self.label.setDefaultTextColor(QColor("#2c3454"))
         self._layout_contents()
-        self.component, self.node = self.createComponent(name)
+        if self.preview_only:
+            self.component = None
+            self.node = None
+            self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            self.setAcceptHoverEvents(False)
+            self.setFlags(QGraphicsRectItem.GraphicsItemFlag(0))
+            self.setOpacity(0.45)
+            self.setZValue(20)
+        else:
+            self.component, self.node = self.createComponent(name)
 
 
     def _component_icon_pixmap(self):
@@ -109,6 +123,11 @@ class ComponentItem(QGraphicsRectItem):
         text_width = self.label.boundingRect().width()
         self.label.setPos(66 - text_width / 2, 48)
 
+    def paint(self, painter, option, widget=None):
+        painter.setPen(self.pen())
+        painter.setBrush(self.normal_brush)
+        painter.drawRect(self.rect())
+
 
     def itemChange(self, change, value):
         if change == QGraphicsRectItem.GraphicsItemChange.ItemPositionHasChanged:
@@ -126,7 +145,11 @@ class ComponentItem(QGraphicsRectItem):
             return []
         return [
             item for item in self.scene().items()
-            if item is not self and isinstance(item, ComponentItem)
+            if (
+                item is not self
+                and isinstance(item, ComponentItem)
+                and not getattr(item, "preview_only", False)
+            )
         ]
 
 
@@ -382,7 +405,7 @@ class ComponentItem(QGraphicsRectItem):
         delete_action = menu.addAction("Delete Component")
         selected_action = menu.exec(event.screenPos())
         if selected_action == delete_action:
-            self.canvas.remove_component_item(self)
+            self.canvas.delete_component_items([self])
         elif selected_action == property_action:
             self.edit_properties()
 

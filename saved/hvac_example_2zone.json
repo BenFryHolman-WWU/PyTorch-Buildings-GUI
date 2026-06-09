@@ -1,0 +1,186 @@
+{
+  "name": "Two-Zone Building System Example",
+  "n_zones": 2,
+  "components": [
+    {
+      "id": "component-0001",
+      "type": "SolarGains",
+      "x": 80.0,
+      "y": 80.0,
+      "values": {
+        "window_area": 25.0,
+        "window_orientation": [0.0, 90.0],
+        "window_shgc": 0.6000000238418579,
+        "latitude_deg": 40.0,
+        "max_solar_irradiance": 800.0
+      }
+    },
+    {
+      "id": "component-0002",
+      "type": "RTU",
+      "x": 360.0,
+      "y": 80.0,
+      "values": {
+        "airflow_max": 4.0,
+        "airflow_oa_min": 0.4000000059604645,
+        "Q_coil_max": 20000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.200000047683716,
+        "heating_efficiency": 0.8799999952316284
+      }
+    },
+    {
+      "id": "component-0003",
+      "type": "VAVBox",
+      "x": 640.0,
+      "y": 80.0,
+      "values": {
+        "airflow_min": [0.10000000149011612, 0.07999999821186066],
+        "airflow_max": [0.800000011920929, 0.6000000238418579],
+        "control_gain": [2.5, 2.0],
+        "Q_reheat_max": [3000.0, 2500.0],
+        "reheat_efficiency": 0.949999988079071
+      }
+    },
+    {
+      "id": "component-0004",
+      "type": "Envelope",
+      "x": 360.0,
+      "y": 290.0,
+      "values": {
+        "R_env": [0.10000000149011612, 0.11999999731779099],
+        "C_env": [1200000.0, 1000000.0],
+        "R_internal": 0.05000000074505806,
+        "adjacency": [[1.0, 0.0], [0.0, 1.0]]
+      }
+    }
+  ],
+  "component_sections": {
+    "component-0001": {
+      "type": "SolarGains",
+      "position": {
+        "x": 80.0,
+        "y": 80.0
+      },
+      "values": {
+        "window_area": 25.0,
+        "window_orientation": [0.0, 90.0],
+        "window_shgc": 0.6000000238418579,
+        "latitude_deg": 40.0,
+        "max_solar_irradiance": 800.0
+      }
+    },
+    "component-0002": {
+      "type": "RTU",
+      "position": {
+        "x": 360.0,
+        "y": 80.0
+      },
+      "values": {
+        "airflow_max": 4.0,
+        "airflow_oa_min": 0.4000000059604645,
+        "Q_coil_max": 20000.0,
+        "fan_power_per_flow": 800.0,
+        "cooling_COP": 3.200000047683716,
+        "heating_efficiency": 0.8799999952316284
+      }
+    },
+    "component-0003": {
+      "type": "VAVBox",
+      "position": {
+        "x": 640.0,
+        "y": 80.0
+      },
+      "values": {
+        "airflow_min": [0.10000000149011612, 0.07999999821186066],
+        "airflow_max": [0.800000011920929, 0.6000000238418579],
+        "control_gain": [2.5, 2.0],
+        "Q_reheat_max": [3000.0, 2500.0],
+        "reheat_efficiency": 0.949999988079071
+      }
+    },
+    "component-0004": {
+      "type": "Envelope",
+      "position": {
+        "x": 360.0,
+        "y": 290.0
+      },
+      "values": {
+        "R_env": [0.10000000149011612, 0.11999999731779099],
+        "C_env": [1200000.0, 1000000.0],
+        "R_internal": 0.05000000074505806,
+        "adjacency": [[1.0, 0.0], [0.0, 1.0]]
+      }
+    }
+  },
+  "connections": [
+    {
+      "src_id": "component-0001",
+      "dst_id": "component-0004",
+      "src_output": "solar.Q_solar",
+      "dst_input": "Q_solar",
+      "mappings": [["solar.Q_solar", "Q_solar"]],
+      "src": 0,
+      "dst": 3
+    },
+    {
+      "src_id": "component-0004",
+      "dst_id": "component-0002",
+      "src_output": "envelope.T_zones",
+      "dst_input": "T_return_zones",
+      "mappings": [["envelope.T_zones", "T_return_zones"]],
+      "src": 3,
+      "dst": 1
+    },
+    {
+      "src_id": "component-0004",
+      "dst_id": "component-0003",
+      "src_output": "envelope.T_zones",
+      "dst_input": "T_zone",
+      "mappings": [["envelope.T_zones", "T_zone"]],
+      "src": 3,
+      "dst": 2
+    },
+    {
+      "src_id": "component-0002",
+      "dst_id": "component-0003",
+      "src_output": "rtu.T_supply, rtu.P_supply",
+      "dst_input": "T_supply_upstream, P_duct",
+      "mappings": [["rtu.T_supply", "T_supply_upstream"], ["rtu.P_supply", "P_duct"]],
+      "src": 1,
+      "dst": 2
+    },
+    {
+      "src_id": "component-0003",
+      "dst_id": "component-0002",
+      "src_output": "vav.supply_airflow",
+      "dst_input": "return_airflow_zones",
+      "mappings": [["vav.supply_airflow", "return_airflow_zones"]],
+      "src": 2,
+      "dst": 1
+    },
+    {
+      "src_id": "component-0003",
+      "dst_id": "component-0004",
+      "src_output": "vav.Q_supply_flow",
+      "dst_input": "Q_hvac",
+      "mappings": [["vav.Q_supply_flow", "Q_hvac"]],
+      "src": 2,
+      "dst": 3
+    }
+  ],
+  "time": {
+    "t_start": 18000.0,
+    "t_duration": 86400.0,
+    "dt": 300.0
+  },
+  "control_policy": {
+    "tu_T_supply_setpoint": 285.15,
+    "rtu_supply_airflow_setpoint": 1.0,
+    "use_control_policy_override": false
+  },
+  "input_data": {
+    "path": null,
+    "summary": {}
+  }
+}

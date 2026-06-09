@@ -229,9 +229,9 @@ class SimulationRunner:
                 connection.dstNode.input_map[src_key] = dst_keyword
         for node in building_model.nodes:
             node.input_keys = list(node.input_map)
-        self._apply_time_step_input(building_model)
 
     def _apply_time_step_input(self, building_model):
+        """Explicit opt-in hook for models that map dt into component inputs."""
         for node in building_model.nodes:
             node.input_map["dt"] = "dt"
             node.input_keys = list(node.input_map)
