@@ -163,22 +163,40 @@ class PlottingTests(unittest.TestCase):
         self.assertEqual(len(widget.charts[0].series), 2)
         self.assertTrue(widget.charts[-1].show_x_axis)
 
-    def test_multi_chart_csv_export_uses_displayed_values_and_units(self):
+    def test_multi_chart_csv_export_uses_time_index_and_variable_columns(self):
         widget = MultiChartWidget()
         results = {
             "t": torch.tensor([[[0.0], [300.0]]]),
-            "envelope.T_zones": torch.tensor([[[293.15], [294.15]]]),
+            "envelope.T_zones": torch.tensor([[[293.15, 294.15], [294.15, 295.15]]]),
+            "rtu.total_power": torch.tensor([[[100.0], [200.0]]]),
         }
-        widget.load_results(results, ["envelope.T_zones"], 18000, VARIABLE_META, ZONE_COLORS)
+        widget.load_results(
+            results,
+            ["envelope.T_zones", "rtu.total_power"],
+            18000,
+            VARIABLE_META,
+            ZONE_COLORS,
+        )
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "plot.csv"
             widget.save_to_csv(path)
             with path.open(newline="", encoding="utf-8") as csv_file:
-                rows = list(csv.DictReader(csv_file))
+                rows = list(csv.reader(csv_file))
 
-        self.assertEqual(rows[0]["variable"], "envelope.T_zones")
-        self.assertEqual(rows[0]["unit"], "C")
-        self.assertAlmostEqual(float(rows[0]["value"]), 20.0, places=4)
+        self.assertEqual(
+            rows[0],
+            [
+                "elapsed_time_seconds",
+                "envelope.T_zones - Zone 1 [C]",
+                "envelope.T_zones - Zone 2 [C]",
+                "rtu.total_power [W]",
+            ],
+        )
+        self.assertEqual(rows[1][0], "0.0")
+        self.assertAlmostEqual(float(rows[1][1]), 20.0, places=4)
+        self.assertAlmostEqual(float(rows[1][2]), 21.0, places=4)
+        self.assertEqual(rows[2][0], "300.0")
+        self.assertEqual(rows[2][3], "200.0")
 
     def test_partial_live_results_keep_full_x_axis_range(self):
         widget = MultiChartWidget()

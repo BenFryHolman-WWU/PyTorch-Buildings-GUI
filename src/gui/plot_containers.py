@@ -409,30 +409,34 @@ class MultiChartWidget(QWidget):
 
 
     def save_to_csv(self, path: str):
-        """Export the currently displayed chart series and units as CSV rows."""
+        """Export displayed series as columns sharing one elapsed-time index."""
         if not self.charts:
             raise ValueError("There are no chart series to export.")
+
+        columns = []
+        for chart in self.charts:
+            for series in chart.series:
+                label = chart.var_key
+                if len(chart.series) > 1:
+                    label = f"{label} - {series.label}"
+                if chart.value_unit:
+                    label = f"{label} [{chart.value_unit}]"
+                columns.append((label, series))
+        if not columns:
+            raise ValueError("There are no chart series to export.")
+
+        row_count = max(len(series.x) for _, series in columns)
+        time_series = max((series for _, series in columns), key=lambda series: len(series.x))
         with open(path, "w", encoding="utf-8", newline="") as csv_file:
             writer = csv.writer(csv_file)
-            writer.writerow([
-                "chart",
-                "variable",
-                "series",
-                "elapsed_time_seconds",
-                "value",
-                "unit",
-            ])
-            for chart_index, chart in enumerate(self.charts, start=1):
-                for series in chart.series:
-                    for elapsed, value in zip(series.x, series.y):
-                        writer.writerow([
-                            chart_index,
-                            chart.var_key,
-                            series.label,
-                            float(elapsed),
-                            float(value),
-                            chart.value_unit,
-                        ])
+            writer.writerow(["elapsed_time_seconds", *[label for label, _ in columns]])
+            for index in range(row_count):
+                elapsed = float(time_series.x[index]) if index < len(time_series.x) else ""
+                values = [
+                    float(series.y[index]) if index < len(series.y) else ""
+                    for _, series in columns
+                ]
+                writer.writerow([elapsed, *values])
 
 
 class VarListWidget(QListWidget):
