@@ -1,4 +1,7 @@
 import unittest
+import csv
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -159,6 +162,23 @@ class PlottingTests(unittest.TestCase):
         self.assertEqual(len(widget.charts), 2)
         self.assertEqual(len(widget.charts[0].series), 2)
         self.assertTrue(widget.charts[-1].show_x_axis)
+
+    def test_multi_chart_csv_export_uses_displayed_values_and_units(self):
+        widget = MultiChartWidget()
+        results = {
+            "t": torch.tensor([[[0.0], [300.0]]]),
+            "envelope.T_zones": torch.tensor([[[293.15], [294.15]]]),
+        }
+        widget.load_results(results, ["envelope.T_zones"], 18000, VARIABLE_META, ZONE_COLORS)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "plot.csv"
+            widget.save_to_csv(path)
+            with path.open(newline="", encoding="utf-8") as csv_file:
+                rows = list(csv.DictReader(csv_file))
+
+        self.assertEqual(rows[0]["variable"], "envelope.T_zones")
+        self.assertEqual(rows[0]["unit"], "C")
+        self.assertAlmostEqual(float(rows[0]["value"]), 20.0, places=4)
 
     def test_partial_live_results_keep_full_x_axis_range(self):
         widget = MultiChartWidget()

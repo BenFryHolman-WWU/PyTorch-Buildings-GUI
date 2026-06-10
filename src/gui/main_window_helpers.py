@@ -1,7 +1,7 @@
 """Shared helpers for the main window modules."""
 
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtCore import QSize, pyqtSignal
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QPushButton, QSizePolicy
 
 from neuromancer.hvac.building_components import Envelope, RTU, SolarGains, VAVBox

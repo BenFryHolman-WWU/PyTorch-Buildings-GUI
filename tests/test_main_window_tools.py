@@ -1,11 +1,12 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from test_support import get_qapp
 
 from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QKeySequence
-from PyQt6.QtWidgets import QMessageBox
 from gui.main_window import MainWindow
 
 
@@ -268,7 +269,7 @@ class MainWindowToolModeTests(unittest.TestCase):
         window = MainWindow()
         item = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
 
-        with patch("gui.main_window.QMessageBox.question", return_value=QMessageBox.StandardButton.No) as question:
+        with patch.object(window.dialogue_manager, "confirm_new_project", return_value=False) as question:
             window.new_page()
 
         question.assert_called_once()
@@ -290,7 +291,7 @@ class MainWindowToolModeTests(unittest.TestCase):
             enable_override=True,
         )
 
-        with patch("gui.main_window.QMessageBox.question", return_value=QMessageBox.StandardButton.Yes):
+        with patch.object(window.dialogue_manager, "confirm_new_project", return_value=True):
             window.new_page()
 
         self.assertNotIn(item, window.building_model.componentItems)
@@ -330,6 +331,23 @@ class MainWindowToolModeTests(unittest.TestCase):
 
         confirm_load.assert_not_called()
         self.assertFalse(window.is_dirty)
+        window.close()
+
+    def test_invalid_json_layout_shows_error_without_clearing_project(self):
+        window = MainWindow()
+        item = window.canvas.add_component("RTU", QPointF(0, 0), component_id="rtu")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "invalid.json"
+            path.write_text('{"name": "invalid",', encoding="utf-8")
+            with patch.object(window.dialogue_manager, "confirm_load_project", return_value=True):
+                with patch.object(window.dialogue_manager, "prompt_load_layout_path", return_value=str(path)):
+                    with patch.object(window.dialogue_manager, "show_error") as show_error:
+                        loaded = window.load_layout()
+
+        self.assertFalse(loaded)
+        show_error.assert_called_once()
+        self.assertIn(item, window.building_model.componentItems)
+        window.is_dirty = False
         window.close()
 
     def test_undo_redo_actions_include_ctrl_and_command_style_shortcuts(self):

@@ -1,11 +1,18 @@
 """Project and input-data file persistence helpers."""
 
 import json
-from datetime import datetime
+import math
 from pathlib import Path
 
 
+class LayoutFileError(Exception):
+    """A user-facing layout file error that is safe to display."""
+
+
 class FileManager:
+    _MAX_LAYOUT_BYTES = 10 * 1024 * 1024
+    _COMPONENT_TYPES = {"Envelope", "RTU", "VAVBox", "SolarGains", "ControlPolicy"}
+
     def __init__(self, building_model):
         self.building_model = building_model
 
@@ -196,14 +203,187 @@ class FileManager:
 
     def save_layout(self, model_name, n_zones, component_items, visual_connections, time_data, save_path):
         payload = self.build_payload(model_name, n_zones, component_items, visual_connections, time_data)
-        with open(save_path, "w", encoding = "utf-8") as json_file:
-            json_file.write(self._format_json_with_inline_lists(payload) + "\n")
-        return save_path
+        self.validate_payload(payload)
+        path = Path(save_path)
+        if path.suffix.lower() != ".json":
+            raise LayoutFileError("Layouts can only be saved as .json files.")
+        try:
+            with path.open("w", encoding="utf-8") as json_file:
+                json_file.write(self._format_json_with_inline_lists(payload) + "\n")
+        except OSError:
+            raise LayoutFileError("The layout could not be saved to the selected location.") from None
+        return path
 
     def load_payload_from_path(self, load_path):
-        with open(load_path, "r", encoding = "utf-8") as json_file:
-            payload = json.load(json_file)
+        path = Path(load_path)
+        if path.suffix.lower() != ".json":
+            raise LayoutFileError("Select a JSON layout file ending in .json.")
+        try:
+            if path.stat().st_size > self._MAX_LAYOUT_BYTES:
+                raise LayoutFileError("The selected layout is too large to open safely.")
+            with path.open("r", encoding="utf-8") as json_file:
+                payload = json.load(json_file)
+        except LayoutFileError:
+            raise
+        except json.JSONDecodeError as exc:
+            raise LayoutFileError(
+                f"The layout contains invalid JSON near line {exc.lineno}, column {exc.colno}."
+            ) from None
+        except UnicodeDecodeError:
+            raise LayoutFileError("The layout must be a UTF-8 encoded JSON file.") from None
+        except OSError:
+            raise LayoutFileError("The selected layout could not be read.") from None
+        self.validate_payload(payload)
         return payload
+
+    def validate_payload(self, payload):
+        """Validate a layout completely before it can modify the active project."""
+        if not isinstance(payload, dict):
+            raise LayoutFileError("The layout must contain a JSON object at its top level.")
+
+        name = payload.get("name", "Model")
+        if not isinstance(name, str) or not name.strip() or len(name) > 200:
+            raise LayoutFileError("The project name must be non-empty text shorter than 200 characters.")
+
+        n_zones = self._finite_number(payload.get("n_zones", 2), "n_zones", integer=True)
+        if not 1 <= n_zones <= 100:
+            raise LayoutFileError("n_zones must be between 1 and 100.")
+
+        components = payload.get("components", [])
+        sections = payload.get("component_sections", {})
+        connections = payload.get("connections", [])
+        time_data = payload.get("time", {})
+        control_policy = payload.get("control_policy", {})
+        input_data = payload.get("input_data", {})
+        if not isinstance(components, list):
+            raise LayoutFileError("components must be a JSON list.")
+        if not isinstance(sections, dict):
+            raise LayoutFileError("component_sections must be a JSON object.")
+        if not isinstance(connections, list):
+            raise LayoutFileError("connections must be a JSON list.")
+        if not isinstance(time_data, dict):
+            raise LayoutFileError("time must be a JSON object.")
+        if not isinstance(control_policy, dict):
+            raise LayoutFileError("control_policy must be a JSON object.")
+        if not isinstance(input_data, dict):
+            raise LayoutFileError("input_data must be a JSON object.")
+        if len(components) > 500 or len(sections) > 500 or len(connections) > 5000:
+            raise LayoutFileError("The layout contains more components or connections than supported.")
+
+        component_ids = set()
+        for index, component in enumerate(components):
+            self._validate_component(component, f"components[{index}]", component_ids)
+        for component_id, section in sections.items():
+            if not isinstance(component_id, str) or not component_id:
+                raise LayoutFileError("Every component section must have a non-empty text ID.")
+            if not isinstance(section, dict):
+                raise LayoutFileError(f"component_sections.{component_id} must be a JSON object.")
+            self._validate_component(section, f"component_sections.{component_id}", None, component_id)
+
+        for index, connection in enumerate(connections):
+            self._validate_connection(connection, index, component_ids, len(components))
+
+        t_start = self._finite_number(time_data.get("t_start", self.building_model.t_start), "time.t_start")
+        duration = self._finite_number(time_data.get("t_duration", self.building_model.t_duration), "time.t_duration")
+        dt = self._finite_number(time_data.get("dt", self.building_model.dt), "time.dt")
+        if t_start < 0:
+            raise LayoutFileError("time.t_start cannot be negative.")
+        if duration <= 0 or dt <= 0 or dt > duration:
+            raise LayoutFileError("Simulation duration and time step must be positive, and dt cannot exceed duration.")
+
+        self._validate_json_values(control_policy, "control_policy")
+        self._validate_json_values(input_data.get("summary", {}), "input_data.summary", allow_text=True)
+        input_path = input_data.get("path")
+        if input_path is not None and (not isinstance(input_path, str) or len(input_path) > 4096):
+            raise LayoutFileError("input_data.path must be a valid text path.")
+        return payload
+
+    def _validate_component(self, component, location, component_ids=None, fallback_id=None):
+        if not isinstance(component, dict):
+            raise LayoutFileError(f"{location} must be a JSON object.")
+        component_type = component.get("type")
+        if component_type not in self._COMPONENT_TYPES:
+            raise LayoutFileError(f"{location}.type is not a supported component type.")
+        component_id = component.get("id", fallback_id)
+        if component_id is not None:
+            if not isinstance(component_id, str) or not component_id or len(component_id) > 200:
+                raise LayoutFileError(f"{location}.id must be non-empty text.")
+            if component_ids is not None:
+                if component_id in component_ids:
+                    raise LayoutFileError(f"Duplicate component ID: {component_id}.")
+                component_ids.add(component_id)
+        position = component.get("position", {})
+        if position is not None and not isinstance(position, dict):
+            raise LayoutFileError(f"{location}.position must be a JSON object.")
+        self._finite_number(component.get("x", position.get("x", 0)), f"{location}.x")
+        self._finite_number(component.get("y", position.get("y", 0)), f"{location}.y")
+        values = component.get("values", {})
+        if not isinstance(values, dict):
+            raise LayoutFileError(f"{location}.values must be a JSON object.")
+        self._validate_json_values(values, f"{location}.values")
+
+    def _validate_connection(self, connection, index, component_ids, component_count):
+        location = f"connections[{index}]"
+        if not isinstance(connection, dict):
+            raise LayoutFileError(f"{location} must be a JSON object.")
+        for key in ("src_id", "dst_id"):
+            value = connection.get(key)
+            if value is not None and (not isinstance(value, str) or value not in component_ids):
+                raise LayoutFileError(f"{location}.{key} does not reference a loaded component.")
+        for key in ("src", "dst"):
+            value = connection.get(key)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < component_count
+            ):
+                raise LayoutFileError(f"{location}.{key} must reference a valid component index.")
+        mappings = connection.get("mappings")
+        if mappings is not None:
+            if not isinstance(mappings, list):
+                raise LayoutFileError(f"{location}.mappings must be a JSON list.")
+            for mapping in mappings:
+                if not (
+                    isinstance(mapping, (list, tuple))
+                    and len(mapping) == 2
+                    and all(isinstance(value, str) and value for value in mapping)
+                ):
+                    raise LayoutFileError(f"{location}.mappings contains an invalid signal mapping.")
+
+    def _validate_json_values(self, value, location, depth=0, allow_text=False):
+        if depth > 8:
+            raise LayoutFileError(f"{location} is nested too deeply.")
+        if isinstance(value, dict):
+            if len(value) > 1000:
+                raise LayoutFileError(f"{location} contains too many values.")
+            for key, child in value.items():
+                if not isinstance(key, str) or len(key) > 200:
+                    raise LayoutFileError(f"{location} contains an invalid key.")
+                self._validate_json_values(child, f"{location}.{key}", depth + 1, allow_text)
+            return
+        if isinstance(value, list):
+            if len(value) > 1000:
+                raise LayoutFileError(f"{location} contains too many values.")
+            for index, child in enumerate(value):
+                self._validate_json_values(child, f"{location}[{index}]", depth + 1, allow_text)
+            return
+        if value is None or isinstance(value, bool):
+            return
+        if isinstance(value, (int, float)):
+            if isinstance(value, float) and not math.isfinite(value):
+                raise LayoutFileError(f"{location} must contain only finite numbers.")
+            return
+        if allow_text and isinstance(value, str) and len(value) <= 4096:
+            return
+        raise LayoutFileError(f"{location} contains an unsupported value.")
+
+    def _finite_number(self, value, location, integer=False):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise LayoutFileError(f"{location} must be a number.")
+        number = float(value)
+        if not math.isfinite(number):
+            raise LayoutFileError(f"{location} must be a finite number.")
+        if integer and number != int(number):
+            raise LayoutFileError(f"{location} must be a whole number.")
+        return int(number) if integer else number
 
     def get_model_name(self, payload, default_name):
         return payload.get("name", default_name)

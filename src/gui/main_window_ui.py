@@ -5,9 +5,9 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QIntValidator
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSplitter, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-from .main_window_helpers import COMPONENTS, COMPONENT_ICON_NAMES, _button_style, _policy_toggle_style
+from .main_window_helpers import COMPONENTS, COMPONENT_ICON_NAMES, _policy_toggle_style
 
 
 class MainWindowUiMixin:
@@ -123,27 +123,6 @@ class MainWindowUiMixin:
         else:
             if hasattr(self, "canvas_stack"):
                 self.canvas_stack.setCurrentIndex(0)
-
-    def _create_info_box(self, title):
-        """
-        Summary: Create info box.
-        Returns: Return the computed value.
-        """
-        box = QWidget()
-        box.setStyleSheet(
-            "background: #fafbfd; border: 1px solid #d0d4e8;"
-            " border-radius: 5px; color: #2c3454;"
-        )
-        layout = QHBoxLayout(box)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(6)
-        title_label = QLabel(title)
-        title_label.setStyleSheet("font-weight: 600; border: none; background: transparent; font-size: 11px;")
-        value_label = QLabel("-")
-        value_label.setStyleSheet("border: none; background: transparent; font-size: 11px;")
-        layout.addWidget(title_label)
-        layout.addWidget(value_label)
-        return box, value_label
 
     def _create_zone_controls_box(self):
         """
@@ -359,8 +338,6 @@ class MainWindowUiMixin:
         Summary: Create simulation tab.
         Returns: Return the computed value.
         """
-        import math
-
         _SECTION_HDR = (
             "QLabel { background: #e2e6f0; color: #3a4468; border-radius: 3px;"
             " padding: 2px 6px; font-weight: 700; font-size: 9px; letter-spacing: 1px; }"
@@ -834,8 +811,8 @@ class MainWindowUiMixin:
             return
         try:
             self.building_model.input_data_summary = inspect_input_csv(path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Input Data Error", f"Could not read input data:\n{exc}")
+        except Exception:
+            self.dialogue_manager.show_error("Input Data Error", "The selected input data file could not be read.")
             return
         self.building_model.input_data_path = str(path)
         self.last_dir = Path(path).parent

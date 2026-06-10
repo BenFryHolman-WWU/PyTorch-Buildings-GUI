@@ -2,9 +2,9 @@
 
 import math
 from pathlib import Path
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QApplication, QGraphicsRectItem, QDialog
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QRubberBand, QGraphicsRectItem
 from PyQt6.QtGui import QPen, QColor, QPainter, QBrush, QPolygonF
-from PyQt6.QtCore import Qt, QLineF, QPointF, pyqtSignal, QPoint, QRectF
+from PyQt6.QtCore import Qt, QLineF, QPointF, pyqtSignal, QRectF
 from .canvas_tool_manager import CanvasToolManager
 from .icons import IconProvider
 from .state_manager import Connection
@@ -27,18 +27,10 @@ HVAC_CONNECTIONS = {
     ("vav", "envelope"): [("vav.Q_supply_flow", "Q_hvac")],
 }
 
-COMPONENT_GAP = 24.0
 CANVAS_SCENE_RECT = QRectF(-2400, -1800, 4800, 3600)
 
-COMPONENT_ICON_NAMES = {
-    "Envelope": ("RTU", "rtu", "rooftop_unit"),
-    "RTU": ("Envelope", "envelope", "building_envelope"),
-    "VAVBox": ("Vavbox", "vav_box", "vav"),
-    "SolarGains": ("SolarGains", "solar_gains", "solar"),
-}
 
-
-from .canvas_items import ComponentItem, ControlPolicy, DragButton
+from .canvas_items import ComponentItem, DragButton
 
 class InteractiveCanvas(QGraphicsView):
 
@@ -145,10 +137,6 @@ class InteractiveCanvas(QGraphicsView):
 
     def _emit_zoom_changed(self):
         self.zoom_changed.emit(self.get_zoom_percent())
-
-
-    def _apply_zoom(self, zoom_multiplier):
-        self.tool_manager.apply_zoom(zoom_multiplier)
 
 
     def zoom_in(self):

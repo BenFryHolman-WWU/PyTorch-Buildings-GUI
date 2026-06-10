@@ -1,8 +1,5 @@
 """Main window simulation run-state and callback helpers."""
 
-from PyQt6.QtWidgets import QMessageBox
-
-
 class MainWindowSimulationMixin:
     def _clear_cached_simulation_results(self, keep_plot_screen: bool = False):
         """
@@ -179,8 +176,10 @@ class MainWindowSimulationMixin:
 
         component_items = [ci for ci in self.building_model.componentItems if ci is not None]
         if not component_items:
-            QMessageBox.critical(self, "Simulation Error",
-                                 "No components on the canvas. Add components before running.")
+            self.dialogue_manager.show_error(
+                "Simulation Error",
+                "No components on the canvas. Add components before running.",
+            )
             return
         self._plot_results_shown = None
         self._last_results = None
@@ -325,7 +324,7 @@ class MainWindowSimulationMixin:
 
     def _on_sim_error(self, message: str):
         self.statusBar().showMessage("Simulation failed", 4000)
-        QMessageBox.critical(self, "Simulation Error", message)
+        self.dialogue_manager.show_error("Simulation Error", message)
         self._sim_thread = None
         self._set_simulation_running_ui(False)
         self._sim_stop_requested = False

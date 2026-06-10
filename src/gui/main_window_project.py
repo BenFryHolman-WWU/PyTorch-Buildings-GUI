@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLineEdit, QMessageBox
+from .file_manager import LayoutFileError
 
 
 class MainWindowProjectMixin:
@@ -389,18 +389,25 @@ class MainWindowProjectMixin:
         save_path = self.dialogue_manager.prompt_save_layout_path(self.file_manager.get_saved_dir(self.last_dir))
         if save_path is None:
             return False
-        save_path = self.file_manager.save_layout(
-            model_name = self.building_model.name,
-            n_zones = self.building_model.n_zones,
-            component_items = component_items,
-            visual_connections = self.canvas.visual_connections,
-            time_data = {
-                "t_start": self.building_model.t_start,
-                "t_duration": self.building_model.t_duration,
-                "dt": self.building_model.dt,
-            },
-            save_path = save_path,
-        )
+        try:
+            save_path = self.file_manager.save_layout(
+                model_name=self.building_model.name,
+                n_zones=self.building_model.n_zones,
+                component_items=component_items,
+                visual_connections=self.canvas.visual_connections,
+                time_data={
+                    "t_start": self.building_model.t_start,
+                    "t_duration": self.building_model.t_duration,
+                    "dt": self.building_model.dt,
+                },
+                save_path=save_path,
+            )
+        except LayoutFileError as exc:
+            self.dialogue_manager.show_error("Save Layout Error", str(exc))
+            return False
+        except Exception:
+            self.dialogue_manager.show_error("Save Layout Error", "An unexpected error prevented the layout from being saved.")
+            return False
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.file_path = save_path
         self.last_dir = Path(save_path).parent
@@ -422,18 +429,25 @@ class MainWindowProjectMixin:
         save_path = self.file_path
         if save_path is None:
             return self.save_as_layout()
-        save_path = self.file_manager.save_layout(
-            model_name = self.building_model.name,
-            n_zones = self.building_model.n_zones,
-            component_items = component_items,
-            visual_connections = self.canvas.visual_connections,
-            time_data = {
-                "t_start": self.building_model.t_start,
-                "t_duration": self.building_model.t_duration,
-                "dt": self.building_model.dt,
-            },
-            save_path = save_path,
-        )
+        try:
+            save_path = self.file_manager.save_layout(
+                model_name=self.building_model.name,
+                n_zones=self.building_model.n_zones,
+                component_items=component_items,
+                visual_connections=self.canvas.visual_connections,
+                time_data={
+                    "t_start": self.building_model.t_start,
+                    "t_duration": self.building_model.t_duration,
+                    "dt": self.building_model.dt,
+                },
+                save_path=save_path,
+            )
+        except LayoutFileError as exc:
+            self.dialogue_manager.show_error("Save Layout Error", str(exc))
+            return False
+        except Exception:
+            self.dialogue_manager.show_error("Save Layout Error", "An unexpected error prevented the layout from being saved.")
+            return False
         self.statusBar().showMessage(f"Saved layout to {save_path}", 5000)
         self.last_dir = Path(save_path).parent
         self.is_dirty = False
@@ -452,7 +466,14 @@ class MainWindowProjectMixin:
         load_path = self.dialogue_manager.prompt_load_layout_path(self.file_manager.get_saved_dir(self.last_dir))
         if load_path is None:
             return False
-        payload = self.file_manager.load_payload_from_path(load_path)
+        try:
+            payload = self.file_manager.load_payload_from_path(load_path)
+        except LayoutFileError as exc:
+            self.dialogue_manager.show_error("Load Layout Error", str(exc))
+            return False
+        except Exception:
+            self.dialogue_manager.show_error("Load Layout Error", "An unexpected error prevented the layout from being loaded.")
+            return False
         self.canvas.clear_all()
         self.next_component_id = 1
         self.building_model.name = self.file_manager.get_model_name(payload, self.building_model.name)
@@ -553,8 +574,8 @@ class MainWindowProjectMixin:
                     try:
                         from simulation.input_data import inspect_input_csv
                         input_data["summary"] = inspect_input_csv(resolved_input_path)
-                    except Exception as exc:
-                        QMessageBox.critical(self, "Input Data Error", f"Could not read input data:\n{exc}")
+                    except Exception:
+                        self.dialogue_manager.show_error("Input Data Error", "The selected input data file could not be read.")
                         resolved_input_path = None
             self.building_model.input_data_path = str(resolved_input_path) if resolved_input_path else None
             self.building_model.input_data_summary = input_data.get("summary", {}) if resolved_input_path else {}

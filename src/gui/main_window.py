@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QKeySequence, QUndoStack
-from PyQt6.QtWidgets import QHBoxLayout, QMainWindow, QSplitter, QStatusBar, QTreeWidget, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QMainWindow, QSplitter, QStatusBar, QTreeWidget, QVBoxLayout, QWidget
 
 from models.building_model import BuildingModel
 from .dialogue_manager import DialogueManager
@@ -13,7 +13,6 @@ from .header_bar import HeaderBar
 from .icons import IconProvider
 from .interactive_canvas import InteractiveCanvas
 from .state_manager import StateManager
-from .main_window_helpers import COMPONENTS, COMPONENT_ICON_NAMES
 from .main_window_plots import MainWindowPlotMixin
 from .main_window_project import MainWindowProjectMixin
 from .main_window_simulation import MainWindowSimulationMixin
@@ -76,7 +75,6 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
         central_widget.setLayout(root_layout)
-        self._last_window_style_scale_key = None
         self._main_splitter = None
         self._finish_init(root_layout)
 
@@ -143,20 +141,6 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
         """)
         
-    def _sync_window_style_scale(self):
-        if self.width() < 1180:
-            scale = 0.95
-        else:
-            screen = self.screen()
-            screen_width = screen.availableGeometry().width() if screen is not None else self.width()
-            width_ratio = self.width() / max(1, screen_width)
-            scale = min(1.18, max(1.0, 0.96 + width_ratio * 0.24))
-        scale_key = round(scale, 2)
-        if scale_key == getattr(self, "_last_window_style_scale_key", None):
-            return
-        self._last_window_style_scale_key = scale_key
-        self._apply_window_style(scale)
-
     def _finish_init(self, root_layout):
         self._last_results = None
         self._last_t_start = 0
@@ -168,6 +152,7 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
         self._var_list = None
         self._plot_selected_by_group: dict = {}
         self._plot_order_by_group: dict = {}
+        self._plot_export_format = "png"
         self._sim_thread = None
         self._sim_stop_requested = False
         self._sim_reset_requested = False
@@ -207,8 +192,6 @@ class MainWindow(MainWindowUiMixin, MainWindowPlotMixin, MainWindowSimulationMix
         )
         self.header_bar = HeaderBar(
             self.assets_path,
-            COMPONENTS,
-            COMPONENT_ICON_NAMES,
             callbacks = {
                 "save_as": self.save_as_layout,
                 "save": self.save_layout,

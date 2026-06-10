@@ -6,11 +6,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QWidget
 
 from .icons import IconProvider
-from .interactive_canvas import DragButton
-
-
 ICON_SIZE = QSize(22, 22)
-COMPONENT_ICON_SIZE = QSize(48, 32)
 BASE_TOOLBAR_WIDTH = 1500
 
 
@@ -31,15 +27,13 @@ ACTION_ICONS = {
 
 class HeaderBar(QWidget):
 
-    def __init__(self, assets_path, components, component_icon_names, callbacks):
+    def __init__(self, assets_path, callbacks):
         """
         Summary: Init.
-        Args: assets_path, components, component_icon_names
+        Args: assets_path, callbacks
         """
         super().__init__()
         self.assets_path = Path(assets_path)
-        self.components = components
-        self.component_icon_names = component_icon_names
         self.callbacks = callbacks
         self.icons = IconProvider(self.assets_path)
         self.action_buttons = []
@@ -239,27 +233,5 @@ class HeaderBar(QWidget):
         button.setMinimumHeight(32)
         button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         button.clicked.connect(callback)
-        self.action_buttons.append(button)
-        return button
-
-    def _create_component_drag_button(self, label, component_name, *icon_names):
-        """
-        Summary: Create component drag button.
-        Args: component_name
-        Returns: Return the computed value.
-        """
-        button = DragButton(label, component_name)
-        button.setToolTip("")
-        names = icon_names or self.component_icon_names.get(component_name, (component_name,))
-        button.setIcon(self.icons.icon(*names, fallback_text=label))
-        button.setIconSize(COMPONENT_ICON_SIZE)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        button.setAutoRaise(True)
-        button.setMinimumSize(92, 66)
-        button.setStyleSheet(
-            "QToolButton { border: 1px solid transparent; background: transparent; padding: 2px 4px; color: #000000; }"
-            "QToolButton:hover { background: transparent; border-color: #8fb0df; border-radius: 6px; }"
-            "QToolButton:pressed { background: transparent; border-color: #6f95d0; border-radius: 6px; }"
-        )
         self.action_buttons.append(button)
         return button

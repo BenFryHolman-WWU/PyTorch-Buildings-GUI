@@ -1,5 +1,6 @@
 """Container and drag-list widgets for simulation plots."""
 
+import csv
 from typing import List
 
 import numpy as np
@@ -403,7 +404,35 @@ class MultiChartWidget(QWidget):
             p.drawPixmap(0, y, chart_width, chart_height, px)
             y += chart_height
         p.end()
-        canvas.save(path)
+        if not canvas.save(path):
+            raise OSError("The plot image could not be written.")
+
+
+    def save_to_csv(self, path: str):
+        """Export the currently displayed chart series and units as CSV rows."""
+        if not self.charts:
+            raise ValueError("There are no chart series to export.")
+        with open(path, "w", encoding="utf-8", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([
+                "chart",
+                "variable",
+                "series",
+                "elapsed_time_seconds",
+                "value",
+                "unit",
+            ])
+            for chart_index, chart in enumerate(self.charts, start=1):
+                for series in chart.series:
+                    for elapsed, value in zip(series.x, series.y):
+                        writer.writerow([
+                            chart_index,
+                            chart.var_key,
+                            series.label,
+                            float(elapsed),
+                            float(value),
+                            chart.value_unit,
+                        ])
 
 
 class VarListWidget(QListWidget):

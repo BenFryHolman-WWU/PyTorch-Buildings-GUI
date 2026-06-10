@@ -6,7 +6,7 @@ from pathlib import Path
 from test_support import CanvasStub, get_qapp
 
 from PyQt6.QtCore import QPointF
-from gui.file_manager import FileManager
+from gui.file_manager import FileManager, LayoutFileError
 from gui.interactive_canvas import ComponentItem
 from models.building_model import BuildingModel
 
@@ -83,6 +83,31 @@ class FileManagerTests(unittest.TestCase):
 
         self.assertEqual(manager.get_model_name(payload, "fallback"), "loaded")
         self.assertEqual(manager.get_n_zones(payload, 1), 3)
+
+    def test_load_payload_rejects_invalid_json_with_user_facing_error(self):
+        manager = FileManager(BuildingModel("load"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "layout.json"
+            path.write_text('{"name": "broken",', encoding="utf-8")
+
+            with self.assertRaisesRegex(LayoutFileError, "invalid JSON"):
+                manager.load_payload_from_path(path)
+
+    def test_load_payload_rejects_unsupported_component_before_use(self):
+        manager = FileManager(BuildingModel("load"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "layout.json"
+            path.write_text(
+                json.dumps({
+                    "name": "invalid",
+                    "n_zones": 2,
+                    "components": [{"id": "bad", "type": "UserPython", "x": 0, "y": 0, "values": {}}],
+                }),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(LayoutFileError, "supported component type"):
+                manager.load_payload_from_path(path)
 
     def test_resolve_input_data_path_finds_file_beside_layout(self):
         model = BuildingModel("load")

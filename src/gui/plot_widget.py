@@ -6,14 +6,11 @@ from typing import Callable, List, Optional
 
 import numpy as np
 
-from PyQt6.QtCore import Qt, QMimeData, QRectF, QRect, QPointF, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QMimeData, QRectF, QRect, QPointF, QPoint
 from PyQt6.QtGui import (
     QColor, QDrag, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap,
 )
-from PyQt6.QtWidgets import (
-    QAbstractItemView, QLabel, QListWidget, QListWidgetItem,
-    QSizePolicy, QVBoxLayout, QWidget,
-)
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 
 STYLE_OPTIONS = ["Solid", "Dashed", "Dotted", "Dash-dot"]

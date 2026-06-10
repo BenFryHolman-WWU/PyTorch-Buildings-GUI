@@ -6,8 +6,8 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor, QDoubleValidator, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QColorDialog, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QHBoxLayout,
-    QLabel, QLineEdit, QListWidgetItem, QMessageBox, QProgressBar, QPushButton,
-    QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout, QWidget, QWidgetAction,
+    QLabel, QLineEdit, QListWidgetItem, QProgressBar, QPushButton,
+    QScrollArea, QSizePolicy, QVBoxLayout, QWidget, QWidgetAction,
 )
 
 from .main_window_helpers import OPACITY_STEPS, LineStyleButton, LineStylePreviewButton, _button_style, _line_toggle_style, _plot_settings_title
@@ -137,6 +137,27 @@ class MainWindowPlotMixin:
         outer.setSpacing(6)
         toolbar = QHBoxLayout()
         toolbar.setSpacing(5)
+        format_label = QLabel("Export:")
+        format_label.setStyleSheet("color: #5a6280; font-size: 10px;")
+        toolbar.addWidget(format_label)
+        format_buttons = {}
+        for export_format in ("PNG", "CSV"):
+            button = QPushButton(export_format)
+            button.setObjectName("exportFormatButton")
+            button.setCheckable(True)
+            button.setChecked(export_format.lower() == self._plot_export_format)
+            button.setFixedSize(38, 24)
+            button.setStyleSheet(
+                "QPushButton { border-radius: 11px; padding: 0; font-size: 9px; font-weight: 700;"
+                " background: #edf0f7; color: #9aa3b8; border: 1px solid #d8deec; }"
+                "QPushButton:checked { background: #4a7fc1; color: #ffffff; border-color: #4a7fc1; }"
+            )
+            button.clicked.connect(
+                lambda _checked=False, value=export_format.lower(), buttons=format_buttons:
+                self._set_plot_export_format(value, buttons)
+            )
+            toolbar.addWidget(button)
+            format_buttons[export_format.lower()] = button
         toolbar.addStretch()
         save_btn = QPushButton("Save")
         save_btn.setStyleSheet(_BTN)
@@ -219,32 +240,6 @@ class MainWindowPlotMixin:
         p.setPen(pen)
         mid = h // 2
         p.drawLine(6, mid, w - 6, mid)
-        p.end()
-        return QIcon(px)
-
-    @staticmethod
-    def _make_fit_icon(size: int = 14) -> QIcon:
-        """
-        Summary: Make fit icon.
-        Returns: Return the computed value.
-        """
-        px = QPixmap(size, size)
-        px.fill(QColor(0, 0, 0, 0))
-        p = QPainter(px)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(74, 88, 128), 1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        p.setPen(pen)
-        m = 2
-        leg = max(3, size // 3)
-        p.drawLine(m, m, m + leg, m)
-        p.drawLine(m, m, m, m + leg)
-        p.drawLine(size - m, m, size - m - leg, m)
-        p.drawLine(size - m, m, size - m, m + leg)
-        p.drawLine(m, size - m, m + leg, size - m)
-        p.drawLine(m, size - m, m, size - m - leg)
-        p.drawLine(size - m, size - m, size - m - leg, size - m)
-        p.drawLine(size - m, size - m, size - m, size - m - leg)
         p.end()
         return QIcon(px)
 
@@ -633,10 +628,10 @@ class MainWindowPlotMixin:
                 min_value = float(y_min.text())
                 max_value = float(y_max.text())
             except ValueError:
-                QMessageBox.warning(dialog, "Invalid Range", "Enter numeric values for Min and Max.")
+                self.dialogue_manager.show_error("Invalid Range", "Enter numeric values for Min and Max.")
                 return
             if max_value <= min_value:
-                QMessageBox.warning(dialog, "Invalid Range", "Y max must be greater than Y min.")
+                self.dialogue_manager.show_error("Invalid Range", "Y max must be greater than Y min.")
                 return
             if unit_buttons:
                 chart.set_temperature_unit(unit_state["value"])
@@ -778,28 +773,36 @@ class MainWindowPlotMixin:
         if mc:
             mc.set_overall_title(self._title_input.text())
 
-    def _on_font_size_changed(self, size: int):
-        mc = self._current_multi_chart()
-        if mc:
-            mc.set_font_size(size)
-
-    def _on_reset_zoom(self):
-        mc = self._current_multi_chart()
-        if mc:
-            mc.reset_view()
+    def _set_plot_export_format(self, export_format, buttons):
+        self._plot_export_format = export_format
+        for value, button in buttons.items():
+            button.setChecked(value == export_format)
 
     def _save_plot(self):
         """Summary: Save plot."""
         mc = self._current_multi_chart()
-        if mc is None:
-            QMessageBox.information(self, "No Plot", "Run a simulation first.")
+        if mc is None or not mc.charts:
+            self.dialogue_manager.show_error("No Plot", "Run a simulation and select at least one variable before exporting.")
             return
+        export_format = self._plot_export_format if self._plot_export_format in {"png", "csv"} else "png"
+        file_filter = "PNG Image (*.png)" if export_format == "png" else "CSV Data (*.csv)"
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Plot",
-            str(Path.home() / "simulation_results.png"),
-            "PNG Image (*.png);;JPEG Image (*.jpg)",
+            str(Path.home() / f"simulation_results.{export_format}"),
+            file_filter,
         )
         if not path:
             return
-        mc.save_to_file(path, chart_width=1200, chart_height=240)
+        path = str(Path(path).with_suffix(f".{export_format}"))
+        try:
+            if export_format == "csv":
+                mc.save_to_csv(path)
+            else:
+                mc.save_to_file(path, chart_width=1200, chart_height=240)
+        except (OSError, ValueError):
+            self.dialogue_manager.show_error("Plot Export Error", "The plot could not be saved to the selected location.")
+            return
+        except Exception:
+            self.dialogue_manager.show_error("Plot Export Error", "An unexpected error prevented the plot from being saved.")
+            return
         self.statusBar().showMessage(f"Plot saved to {path}", 4000)

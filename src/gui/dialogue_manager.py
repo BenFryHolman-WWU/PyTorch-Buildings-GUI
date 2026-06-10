@@ -48,8 +48,19 @@ class SetTimeDialog(QDialog):
 
 
     def accept(self):
-        for parameter, value in self.inputs.items():
-            setattr(self.building_model, parameter, float(value.text()))
+        try:
+            values = {parameter: float(value.text()) for parameter, value in self.inputs.items()}
+        except ValueError:
+            show_error_dialog(self, "Invalid Time Settings", "Enter a valid number for each time setting.")
+            return
+        if values["t_start"] < 0 or values["t_duration"] <= 0 or values["dt"] <= 0:
+            show_error_dialog(self, "Invalid Time Settings", "Start time cannot be negative, and duration and time step must be positive.")
+            return
+        if values["dt"] > values["t_duration"]:
+            show_error_dialog(self, "Invalid Time Settings", "The time step cannot exceed the simulation duration.")
+            return
+        for parameter, value in values.items():
+            setattr(self.building_model, parameter, value)
         super().accept()
 
 
@@ -202,16 +213,23 @@ class PropertyDialog(QDialog):
 
     def accept(self):
         """Summary: Accept."""
-        for prop, value in self.inputs.items():
-            if isinstance(value, list) and value and isinstance(value[0], list):
-                updated_list = []
-                for row in value:
-                    updated_list.append([float(input_line.text()) for input_line in row])
-                setattr(self.component, prop, torch.tensor(updated_list))
-            elif isinstance(value, list) and value and isinstance(value[0], QLineEdit):
-                setattr(self.component, prop, torch.tensor([float(input_line.text()) for input_line in value]))
-            else:
-                setattr(self.component, prop, torch.tensor(float(value.text())))
+        try:
+            updated_values = {}
+            for prop, value in self.inputs.items():
+                if isinstance(value, list) and value and isinstance(value[0], list):
+                    updated_values[prop] = torch.tensor([
+                        [float(input_line.text()) for input_line in row]
+                        for row in value
+                    ])
+                elif isinstance(value, list) and value and isinstance(value[0], QLineEdit):
+                    updated_values[prop] = torch.tensor([float(input_line.text()) for input_line in value])
+                else:
+                    updated_values[prop] = torch.tensor(float(value.text()))
+        except ValueError:
+            show_error_dialog(self, "Invalid Component Value", "Enter valid numeric values for every component property.")
+            return
+        for prop, value in updated_values.items():
+            setattr(self.component, prop, value)
         super().accept()
 
 
@@ -392,6 +410,33 @@ def _make_unsaved_dialog(parent, window_title, title_text, subtitle_text, ok_tex
     return dialog
 
 
+def show_error_dialog(parent, title, message):
+    """Show a styled, user-facing error without exposing a Python traceback."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title)
+    dialog.setMinimumWidth(0)
+    dialog.setSizeGripEnabled(False)
+    dialog.setStyleSheet(_UNSAVED_STYLESHEET)
+    layout = QVBoxLayout()
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(6)
+    layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+    title_label = QLabel(title)
+    title_label.setObjectName("dialogTitle")
+    message_label = QLabel(str(message))
+    message_label.setObjectName("dialogSubtitle")
+    message_label.setWordWrap(True)
+    message_label.setMaximumWidth(520)
+    layout.addWidget(title_label)
+    layout.addWidget(message_label)
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+    buttons.accepted.connect(dialog.accept)
+    layout.addWidget(buttons, 0, Qt.AlignmentFlag.AlignHCenter)
+    dialog.setLayout(layout)
+    dialog.adjustSize()
+    dialog.exec()
+
+
 class ConfirmLoadProjectDialog(QDialog):
 
     def __new__(cls, parent=None):
@@ -520,6 +565,9 @@ class DialogueManager:
 
     def show_info(self, title, message):
         QMessageBox.information(self.parent, title, message)
+
+    def show_error(self, title, message):
+        show_error_dialog(self.parent, title, message)
 
 
     def open_set_time_dialog(self):
